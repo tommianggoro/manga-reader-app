@@ -16,9 +16,17 @@ try {
     die("Koneksi database gagal: " . $e->getMessage());
 }
 
-// Password sederhana untuk lindungi akses (karena hosting bisa diakses publik)
-// Ganti dengan password kamu sendiri
-define("ACCESS_PASSWORD", "asikinaja");
+// Password sekarang disimpan dalam bentuk HASH, bukan teks biasa.
+// Cara ganti password:
+//   1. Upload sementara generate_password_hash.php ke server
+//   2. Buka di browser: yoursite.com/generate_password_hash.php?pw=passwordbarukamu
+//   3. Salin hash yang muncul, tempel di bawah ini
+//   4. HAPUS generate_password_hash.php dari server
+define("ACCESS_PASSWORD_HASH", '$2y$10$KeXJv3zEhzGE.5i8L4zEZ./DuU9FJ4/PzZWC1/RqKvdn5EeEs.N2W');
+
+// Rate limiting: berapa kali percobaan salah sebelum dikunci sementara, dan berapa lama.
+define("MAX_LOGIN_ATTEMPTS", 5);
+define("LOGIN_LOCKOUT_MINUTES", 15);
 
 function requireAuth() {
     session_start();
@@ -26,4 +34,55 @@ function requireAuth() {
         header("Location: login.php");
         exit;
     }
+}
+
+function getClientIp() {
+    // Catatan: kalau hosting kamu di belakang reverse proxy/CDN (mis. Cloudflare),
+    // REMOTE_ADDR mungkin perlu diganti dengan header X-Forwarded-For dari proxy tsb.
+    return $_SERVER["REMOTE_ADDR"] ?? "unknown";
+}
+
+// Mengecek apakah IP ini sedang dikunci karena terlalu banyak percobaan gagal.
+// Mengembalikan timestamp "locked_until" (string) kalau masih terkunci, atau null kalau tidak.
+function checkLoginLock($pdo, $ip) {
+    $stmt = $pdo->prepare("SELECT locked_until FROM login_attempts WHERE ip_address = :ip");
+    $stmt->execute([":ip" => $ip]);
+    $row = $stmt->fetch();
+
+    if ($row && $row["locked_until"] && strtotime($row["locked_until"]) > time()) {
+        return $row["locked_until"];
+    }
+    return null;
+}
+
+// Dipanggil setiap kali password yang dimasukkan salah.
+function recordFailedLogin($pdo, $ip) {
+    $stmt = $pdo->prepare("SELECT attempts FROM login_attempts WHERE ip_address = :ip");
+    $stmt->execute([":ip" => $ip]);
+    $row = $stmt->fetch();
+
+    $attempts = $row ? ((int) $row["attempts"] + 1) : 1;
+    $lockedUntil = null;
+    if ($attempts >= MAX_LOGIN_ATTEMPTS) {
+        $lockedUntil = date("Y-m-d H:i:s", time() + LOGIN_LOCKOUT_MINUTES * 60);
+    }
+
+    $stmt = $pdo->prepare("
+        INSERT INTO login_attempts (ip_address, attempts, locked_until)
+        VALUES (:ip, :attempts, :locked_until)
+        ON DUPLICATE KEY UPDATE attempts = :attempts, locked_until = :locked_until
+    ");
+    $stmt->execute([
+        ":ip" => $ip,
+        ":attempts" => $attempts,
+        ":locked_until" => $lockedUntil,
+    ]);
+
+    return $attempts;
+}
+
+// Dipanggil setelah login berhasil, supaya hitungan gagal sebelumnya direset.
+function clearLoginAttempts($pdo, $ip) {
+    $stmt = $pdo->prepare("DELETE FROM login_attempts WHERE ip_address = :ip");
+    $stmt->execute([":ip" => $ip]);
 }
