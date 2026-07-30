@@ -83,7 +83,7 @@ function getExistingChapter($pdo, $chapterId) {
 }
 
 function patchPrevChapterId($pdo, $chapterId, $prevChapterId) {
-    $stmt = $pdo->prepare("UPDATE chapters SET prev_chapter_id = :prev, prev_verified = 1 WHERE chapter_id = :id");
+    $stmt = $pdo->prepare("UPDATE chapters SET prev_chapter_id = :prev, prev_verified = 1, updated_at = NOW() WHERE chapter_id = :id");
     $stmt->execute([":prev" => $prevChapterId, ":id" => $chapterId]);
 }
 
@@ -91,7 +91,11 @@ function saveChapter($pdo, $chapterDetail, $mangaId) {
     $stmt = $pdo->prepare("
         INSERT INTO chapters (chapter_id, manga_id, chapter_number, chapter_title, base_url, image_path, prev_chapter_id, prev_verified)
         VALUES (:chapter_id, :manga_id, :chapter_number, :chapter_title, :base_url, :image_path, :prev_chapter_id, 1)
-        ON DUPLICATE KEY UPDATE chapter_title = VALUES(chapter_title), prev_chapter_id = VALUES(prev_chapter_id), prev_verified = 1
+        ON DUPLICATE KEY UPDATE
+            chapter_title = VALUES(chapter_title),
+            prev_chapter_id = VALUES(prev_chapter_id),
+            prev_verified = 1,
+            updated_at = NOW()
     ");
     $stmt->execute([
         ":chapter_id" => $chapterDetail["chapter_id"],
