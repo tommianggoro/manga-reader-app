@@ -1,0 +1,32 @@
+name: Manga Reader Auto Sync Cron
+
+on:
+  schedule:
+    # Berjalan otomatis setiap 3 jam sekali (pada menit ke-0)
+    - cron: '0 */3 * * *'
+  # Memungkinkan pemicuan manual langsung dari tab Actions di GitHub
+  workflow_dispatch:
+
+jobs:
+  sync-manga:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Run Web Cron Sync Request
+        run: |
+          # Ganti YOUR_DOMAIN_HERE dengan domain/URL situs aplikasi kamu
+          # Contoh: https://mangareader.infinityfreeapp.com atau https://yoursite.com
+          SITE_URL="YOUR_DOMAIN_HERE/cron_update.php?key=manga_reader_secret_key_123"
+          
+          echo "Memanggil endpoint cron sync di: $SITE_URL"
+          
+          # Mengirim HTTP request dengan User-Agent browser asli untuk menghindari pemblokiran sederhana
+          RESPONSE=$(curl -s -L -w "\nHTTP_STATUS:%{http_code}" \
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36" \
+            "$SITE_URL")
+          
+          echo "Hasil Tanggapan Server:"
+          echo "$RESPONSE"

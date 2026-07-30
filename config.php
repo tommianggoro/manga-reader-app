@@ -28,6 +28,9 @@ define("ACCESS_PASSWORD_HASH", '$2y$10$KeXJv3zEhzGE.5i8L4zEZ./DuU9FJ4/PzZWC1/RqK
 define("MAX_LOGIN_ATTEMPTS", 5);
 define("LOGIN_LOCKOUT_MINUTES", 15);
 
+// Secret Key untuk otentikasi eksekusi Cronjob Web (misal: GitHub Actions / Webhook)
+define("CRON_SECRET_KEY", "manga_reader_secret_key_123");
+
 function requireAuth() {
     session_start();
     if (!isset($_SESSION["authenticated"]) || $_SESSION["authenticated"] !== true) {

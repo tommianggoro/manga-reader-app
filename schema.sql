@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jul 30, 2026 at 06:28 AM
+-- Generation Time: Jul 30, 2026 at 03:36 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -37,6 +37,7 @@ CREATE TABLE `chapters` (
   `image_path` varchar(255) NOT NULL,
   `prev_chapter_id` varchar(36) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `prev_verified` tinyint(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -51,6 +52,19 @@ CREATE TABLE `chapter_images` (
   `chapter_id` varchar(36) NOT NULL,
   `page_number` int(11) NOT NULL,
   `filename` varchar(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `login_attempts`
+--
+
+CREATE TABLE `login_attempts` (
+  `ip_address` varchar(45) NOT NULL,
+  `attempts` int(11) NOT NULL DEFAULT 0,
+  `locked_until` datetime DEFAULT NULL,
+  `last_attempt_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -74,6 +88,7 @@ CREATE TABLE `mangas` (
   `genres` varchar(500) DEFAULT NULL,
   `release_year` varchar(10) DEFAULT NULL,
   `rating` decimal(3,1) DEFAULT NULL,
+  `is_favorite` tinyint(1) NOT NULL DEFAULT 0,
   `last_read_chapter_id` varchar(36) DEFAULT NULL,
   `last_read_chapter_number` int(11) DEFAULT NULL,
   `last_read_at` timestamp NULL DEFAULT NULL
@@ -98,6 +113,12 @@ ALTER TABLE `chapter_images`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uniq_chapter_page` (`chapter_id`,`page_number`),
   ADD KEY `idx_chapter_page` (`chapter_id`,`page_number`);
+
+--
+-- Indexes for table `login_attempts`
+--
+ALTER TABLE `login_attempts`
+  ADD PRIMARY KEY (`ip_address`);
 
 --
 -- Indexes for table `mangas`

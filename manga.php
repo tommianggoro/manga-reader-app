@@ -76,19 +76,10 @@ function formatTanggalIndo($datetime) {
         .brand-font { font-family: 'Bitter', Georgia, serif; }
 
         .cover-img-wrap {
-            width: 140px;
-            aspect-ratio: 2/3;
-            border-radius: 0.75rem;
-            overflow: hidden;
-            flex-shrink: 0;
-            background: var(--shimmer-bg-1);
-            position: relative;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            width: 140px; aspect-ratio: 2/3; border-radius: 0.75rem; overflow: hidden; flex-shrink: 0;
+            background: var(--shimmer-bg-1); position: relative; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
-        .cover-img-wrap img {
-            width: 100%; height: 100%; object-fit: cover; opacity: 0;
-            transition: opacity 0.35s ease;
-        }
+        .cover-img-wrap img { width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.35s ease; }
         .cover-img-wrap img.loaded { opacity: 1; }
 
         /* Shimmer Loading Effect */
@@ -111,11 +102,8 @@ function formatTanggalIndo($datetime) {
         .fav-star-btn:hover { transform: scale(1.05); }
 
         .theme-toggle-btn {
-            width: 36px; height: 36px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            border: 1px solid var(--bs-border-color);
-            background: var(--bs-secondary-bg);
-            color: var(--bs-body-color);
+            width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            border: 1px solid var(--bs-border-color); background: var(--bs-secondary-bg); color: var(--bs-body-color);
             transition: all 0.2s ease;
         }
 
@@ -137,9 +125,14 @@ function formatTanggalIndo($datetime) {
         <a class="d-inline-flex align-items-center gap-1 text-decoration-none fw-medium" href="index.php">
             <i class="bi bi-arrow-left"></i> Kembali ke koleksi
         </a>
-        <button type="button" class="theme-toggle-btn" id="themeToggle" title="Ganti Mode Gelap/Terang">
-            <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
-        </button>
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteMangaModal" title="Hapus Manga Ini">
+                <i class="bi bi-trash3 me-1"></i> Hapus Manga
+            </button>
+            <button type="button" class="theme-toggle-btn" id="themeToggle" title="Ganti Mode Gelap/Terang">
+                <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
+            </button>
+        </div>
     </div>
 
     <!-- Manga Main Header Card -->
@@ -178,9 +171,9 @@ function formatTanggalIndo($datetime) {
         </div>
     <?php endif; ?>
 
-    <!-- Action Buttons (Resume/Start) -->
-    <?php if ($firstChapter): ?>
-        <div class="d-flex flex-wrap align-items-center gap-2 mb-4 p-3 rounded-3" style="background: var(--bs-secondary-bg); border: 1px solid var(--bs-border-color);">
+    <!-- Action Buttons (Resume/Start/Update) -->
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-4 p-3 rounded-3" style="background: var(--bs-secondary-bg); border: 1px solid var(--bs-border-color);">
+        <?php if ($firstChapter): ?>
             <?php if (!empty($manga['last_read_chapter_id'])): ?>
                 <a class="btn btn-primary fw-semibold px-3" href="reader.php?chapter_id=<?= urlencode($manga['last_read_chapter_id']) ?>">
                     <i class="bi bi-play-fill fs-5 me-1"></i> Lanjutkan Chapter <?= (int) $manga['last_read_chapter_number'] ?>
@@ -188,14 +181,16 @@ function formatTanggalIndo($datetime) {
                 <a class="btn btn-outline-secondary px-3" href="reader.php?chapter_id=<?= urlencode($firstChapter['chapter_id']) ?>">
                     <i class="bi bi-book me-1"></i> Baca dari Awal
                 </a>
-                <span class="badge text-bg-secondary ms-sm-auto"><i class="bi bi-bookmark-check me-1"></i> Terakhir dibaca: Ch. <?= (int) $manga['last_read_chapter_number'] ?></span>
             <?php else: ?>
                 <a class="btn btn-primary fw-semibold px-4" href="reader.php?chapter_id=<?= urlencode($firstChapter['chapter_id']) ?>">
                     <i class="bi bi-book me-1"></i> Mulai Baca dari Awal
                 </a>
             <?php endif; ?>
-        </div>
-    <?php endif; ?>
+        <?php endif; ?>
+        <a class="btn btn-outline-warning ms-auto" href="crawl.php?manga_id=<?= urlencode($manga['manga_id']) ?>" target="_blank" title="Cek & Sync Chapter Baru">
+            <i class="bi bi-arrow-repeat me-1"></i> Update / Sync Chapter
+        </a>
+    </div>
 
     <!-- Chapter Search & List Header -->
     <div class="d-flex align-items-center justify-content-between mb-2">
@@ -231,6 +226,27 @@ function formatTanggalIndo($datetime) {
 
 </div>
 
+<!-- Modal Konfirmasi Hapus Manga -->
+<div class="modal fade" id="deleteMangaModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-danger">
+            <div class="modal-header text-danger">
+                <h5 class="modal-title brand-font"><i class="bi bi-exclamation-triangle-fill me-2"></i>Konfirmasi Hapus Manga</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Apakah Anda yakin ingin menghapus manga <strong><?= htmlspecialchars($manga['title']) ?></strong> dari koleksi Anda?
+                <p class="text-danger small mt-2 mb-0"><i class="bi bi-info-circle me-1"></i> Tindakan ini akan menghapus seluruh data chapter dan histori bacaan secara permanen.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn"><i class="bi bi-trash3 me-1"></i> Hapus Permanen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     // Theme Switcher
     const themeToggleBtn = document.getElementById("themeToggle");
@@ -272,7 +288,7 @@ function formatTanggalIndo($datetime) {
         noResult.style.display = visibleCount === 0 ? "block" : "none";
     });
 
-    // Toggle favorit tanpa reload halaman
+    // Toggle favorit
     const favBtn = document.getElementById("favBtn");
     favBtn.addEventListener("click", async () => {
         try {
@@ -288,8 +304,33 @@ function formatTanggalIndo($datetime) {
             favBtn.classList.toggle("active", data.is_favorite);
             icon.classList.toggle("bi-star-fill", data.is_favorite);
             icon.classList.toggle("bi-star", !data.is_favorite);
+        } catch (err) { alert("Gagal update favorit: " + err.message); }
+    });
+
+    // Hapus Single Manga
+    const confirmDeleteBtn = document.getElementById("confirmDeleteBtn");
+    confirmDeleteBtn.addEventListener("click", async () => {
+        try {
+            confirmDeleteBtn.disabled = true;
+            confirmDeleteBtn.textContent = "Menghapus...";
+
+            const res = await fetch("delete_manga.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: "manga_id=" + encodeURIComponent(<?= json_encode($mangaId) ?>)
+            });
+            const data = await res.json();
+            if (!data.success) {
+                alert("Gagal menghapus manga: " + data.error);
+                confirmDeleteBtn.disabled = false;
+                confirmDeleteBtn.innerHTML = '<i class="bi bi-trash3 me-1"></i> Hapus Permanen';
+                return;
+            }
+            window.location.href = "index.php";
         } catch (err) {
-            alert("Gagal update favorit: " + err.message);
+            alert("Error: " + err.message);
+            confirmDeleteBtn.disabled = false;
+            confirmDeleteBtn.innerHTML = '<i class="bi bi-trash3 me-1"></i> Hapus Permanen';
         }
     });
 </script>

@@ -22,6 +22,10 @@ foreach ($mangas as $m) {
 }
 $allGenres = array_keys($allGenres);
 sort($allGenres);
+
+$importSuccess = $_GET["import_success"] ?? null;
+$importedCount = $_GET["mangas"] ?? 0;
+$importError = $_GET["import_error"] ?? null;
 ?>
 <!DOCTYPE html>
 <html lang="id" data-bs-theme="dark">
@@ -30,7 +34,6 @@ sort($allGenres);
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Koleksi Manga Pribadi</title>
     <script>
-        // Mencegah flicker tema saat halaman dimuat
         (function() {
             const savedTheme = localStorage.getItem('manga_theme') || 'dark';
             document.documentElement.setAttribute('data-bs-theme', savedTheme);
@@ -72,7 +75,7 @@ sort($allGenres);
             --shimmer-bg-2: #f8f9fa;
         }
 
-        body { font-family: 'Inter', system-ui, sans-serif; transition: background-color 0.3s ease, color 0.3s ease; }
+        body { font-family: 'Inter', system-ui, sans-serif; transition: background-color 0.3s ease, color 0.3s ease; padding-bottom: 70px; }
         .brand-font { font-family: 'Bitter', Georgia, serif; }
 
         /* Header & Nav */
@@ -81,14 +84,13 @@ sort($allGenres);
             margin: 0; font-size: 1.5rem; font-weight: 700; letter-spacing: 0.01em;
             display: flex; align-items: center; gap: 0.6rem;
         }
-        .app-header h1 i { font-size: 1.4rem; }
 
         /* Stats Bar */
         .stats-badge {
             background: var(--bs-tertiary-bg);
             border: 1px solid var(--bs-border-color);
             border-radius: 12px;
-            padding: 0.5rem 0.85rem;
+            padding: 0.45rem 0.85rem;
             font-size: 0.82rem;
             font-weight: 500;
             display: inline-flex;
@@ -96,15 +98,9 @@ sort($allGenres);
             gap: 0.4rem;
             transition: all 0.2s ease;
         }
-        .stats-badge:hover {
-            transform: translateY(-2px);
-            border-color: var(--bs-primary);
-        }
 
-        /* Form & Inputs */
-        .add-form .form-control::placeholder { color: #7c8194; }
         .theme-toggle-btn {
-            width: 40px; height: 40px; border-radius: 50%;
+            width: 38px; height: 38px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
             border: 1px solid var(--bs-border-color);
             background: var(--bs-secondary-bg);
@@ -114,18 +110,13 @@ sort($allGenres);
         .theme-toggle-btn:hover {
             border-color: var(--bs-primary);
             color: var(--bs-primary);
-            transform: rotate(15deg);
         }
 
-        /* Chips Filter */
         .chip {
             border-radius: 50rem;
             font-size: 0.82rem;
             padding: 0.35rem 0.8rem;
             transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .chip:hover {
-            transform: translateY(-1px);
         }
 
         /* Shimmer Loading Effect */
@@ -146,37 +137,20 @@ sort($allGenres);
             overflow: hidden;
             border-radius: 12px;
             background: var(--bs-card-bg);
+            position: relative;
         }
         .manga-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
             border-color: var(--bs-primary);
         }
         .img-wrapper {
-            position: relative;
-            width: 100%;
-            aspect-ratio: 2/3;
-            overflow: hidden;
-            background: var(--shimmer-bg-1);
+            position: relative; width: 100%; aspect-ratio: 2/3; overflow: hidden; background: var(--shimmer-bg-1);
         }
         .img-wrapper img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            opacity: 0;
-            transition: opacity 0.35s ease, transform 0.35s ease;
+            width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.35s ease;
         }
-        .img-wrapper img.loaded {
-            opacity: 1;
-        }
-        .manga-card:hover .img-wrapper img.loaded {
-            transform: scale(1.04);
-        }
-        .manga-card .card-title {
-            font-size: 0.92rem;
-            font-weight: 600;
-            line-height: 1.35;
-        }
+        .img-wrapper img.loaded { opacity: 1; }
 
         /* Manga Item (List View) */
         .manga-list-item {
@@ -185,28 +159,15 @@ sort($allGenres);
             background: var(--bs-card-bg);
             border-radius: 12px;
             overflow: hidden;
-        }
-        .manga-list-item:hover {
-            transform: translateX(4px);
-            border-color: var(--bs-primary);
-        }
-        .manga-list-item .list-img-wrap {
-            width: 90px;
-            height: 125px;
-            flex-shrink: 0;
-            background: var(--shimmer-bg-1);
             position: relative;
         }
+        .manga-list-item .list-img-wrap {
+            width: 90px; height: 125px; flex-shrink: 0; background: var(--shimmer-bg-1); position: relative;
+        }
         .manga-list-item .list-img-wrap img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            opacity: 0;
-            transition: opacity 0.35s ease;
+            width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.35s ease;
         }
-        .manga-list-item .list-img-wrap img.loaded {
-            opacity: 1;
-        }
+        .manga-list-item .list-img-wrap img.loaded { opacity: 1; }
 
         /* Fav Star Button */
         .fav-star {
@@ -216,14 +177,27 @@ sort($allGenres);
             display: flex; align-items: center; justify-content: center;
             transition: all 0.2s ease;
         }
-        [data-bs-theme="light"] .fav-star {
-            background: rgba(255, 255, 255, 0.85);
-            color: #666;
-        }
+        [data-bs-theme="light"] .fav-star { background: rgba(255, 255, 255, 0.85); color: #666; }
         .fav-star.active { color: var(--bs-primary); }
-        .fav-star:hover {
-            transform: scale(1.1);
-            background: rgba(16, 19, 26, 0.95);
+
+        /* Checkbox & Batch Selection */
+        .batch-checkbox {
+            width: 22px; height: 22px;
+            position: absolute; top: 10px; left: 10px; z-index: 10;
+            cursor: pointer; display: none;
+            accent-color: var(--bs-primary);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+        }
+        .manage-mode .batch-checkbox { display: block; }
+        .manage-mode .fav-star { display: none !important; }
+
+        /* Floating Batch Action Bar */
+        .batch-action-bar {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: var(--bs-secondary-bg); border: 1px solid var(--bs-border-color);
+            border-radius: 50rem; padding: 0.5rem 1.25rem;
+            display: none; align-items: center; gap: 0.8rem;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4); z-index: 1040;
         }
 
         /* Empty States */
@@ -235,38 +209,58 @@ sort($allGenres);
             text-align: center;
         }
         .empty-icon-box {
-            width: 80px; height: 80px;
-            margin: 0 auto 1.25rem;
-            border-radius: 50%;
-            background: var(--bs-tertiary-bg);
-            color: var(--bs-primary);
-            display: flex; align-items: center; justify-content: justify-content;
-            justify-content: center;
-            font-size: 2.2rem;
+            width: 80px; height: 80px; margin: 0 auto 1.25rem; border-radius: 50%;
+            background: var(--bs-tertiary-bg); color: var(--bs-primary);
+            display: flex; align-items: center; justify-content: center; font-size: 2.2rem;
         }
     </style>
 </head>
 <body>
 <div class="container py-3">
 
+    <!-- Flash Messages (Import Result) -->
+    <?php if ($importSuccess): ?>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i> Berhasil mengimpor data! Total <strong><?= (int) $importedCount ?></strong> manga berhasil dipulihkan.
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    <?php endif; ?>
+    <?php if ($importError): ?>
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i> Gagal mengimpor backup: <?= htmlspecialchars($importError) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    <?php endif; ?>
+
     <!-- Header Section -->
     <div class="app-header d-flex align-items-center justify-content-between flex-wrap gap-2">
         <h1 class="brand-font"><i class="bi bi-book-half text-primary"></i> Koleksi Manga Pribadi</h1>
         <div class="d-flex align-items-center gap-2">
-            <button type="button" class="theme-toggle-btn" id="themeToggle" title="Ganti Mode Gelap/Terang">
+            <a href="crawl_all.php" target="_blank" class="btn btn-outline-warning btn-sm fw-semibold" title="Sinkronisasi seluruh manga di koleksi">
+                <i class="bi bi-arrow-repeat me-1"></i> 🔥 Cek Update Semua Manga
+            </a>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#backupModal" title="Ekspor/Impor JSON Backup">
+                <i class="bi bi-database-gear me-1"></i> Backup
+            </button>
+            <button type="button" class="theme-toggle-btn ms-1" id="themeToggle" title="Ganti Mode Gelap/Terang">
                 <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
             </button>
         </div>
     </div>
 
     <!-- Statistik Bar -->
-    <div class="d-flex flex-wrap gap-2 mb-3">
-        <div class="stats-badge"><i class="bi bi-collection-fill text-primary"></i> <span><?= $totalManga ?> Manga</span></div>
-        <div class="stats-badge"><i class="bi bi-journals text-info"></i> <span><?= $totalChapters ?> Total Chapter</span></div>
-        <div class="stats-badge"><i class="bi bi-star-fill text-warning"></i> <span><?= $totalFavorites ?> Favorit</span></div>
-        <?php if ($recentlyUpdated > 0): ?>
-            <div class="stats-badge"><i class="bi bi-fire text-danger"></i> <span>🔥 <?= $recentlyUpdated ?> Update Minggu Ini</span></div>
-        <?php endif; ?>
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div class="d-flex flex-wrap gap-2">
+            <div class="stats-badge"><i class="bi bi-collection-fill text-primary"></i> <span id="statMangaCount"><?= $totalManga ?> Manga</span></div>
+            <div class="stats-badge"><i class="bi bi-journals text-info"></i> <span><?= $totalChapters ?> Chapter</span></div>
+            <div class="stats-badge"><i class="bi bi-star-fill text-warning"></i> <span id="statFavCount"><?= $totalFavorites ?> Favorit</span></div>
+            <?php if ($recentlyUpdated > 0): ?>
+                <div class="stats-badge"><i class="bi bi-fire text-danger"></i> <span>🔥 <?= $recentlyUpdated ?> Update Minggu Ini</span></div>
+            <?php endif; ?>
+        </div>
+        <button type="button" class="btn btn-sm btn-outline-secondary" id="toggleManageModeBtn">
+            <i class="bi bi-ui-checks me-1"></i> Mode Kelola / Batch Delete
+        </button>
     </div>
 
     <!-- Form Tambah Manga -->
@@ -317,31 +311,33 @@ sort($allGenres);
     <!-- Grid View Container -->
     <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 g-3" id="mangaGrid">
         <?php foreach ($mangas as $m): ?>
-            <div class="col manga-item-col">
-                <a class="card h-100 text-decoration-none manga-card"
-                   href="manga.php?manga_id=<?= urlencode($m['manga_id']) ?>"
-                   data-title="<?= htmlspecialchars(mb_strtolower($m['title'])) ?>"
-                   data-id="<?= htmlspecialchars(mb_strtolower($m['manga_id'])) ?>"
-                   data-author="<?= htmlspecialchars(mb_strtolower($m['author'] ?? '')) ?>"
-                   data-genres="<?= htmlspecialchars(mb_strtolower($m['genres'] ?? '')) ?>"
-                   data-favorite="<?= !empty($m['is_favorite']) ? '1' : '0' ?>">
-                    <div class="img-wrapper skeleton-shimmer">
-                        <img src="<?= htmlspecialchars($m['cover_image_url']) ?>" class="card-img-top" alt="<?= htmlspecialchars($m['title']) ?>" loading="lazy" onload="this.classList.add('loaded'); this.parentElement.classList.remove('skeleton-shimmer');">
-                        <button type="button" class="btn position-absolute top-0 end-0 m-2 rounded-circle fav-star <?= !empty($m['is_favorite']) ? 'active' : '' ?>"
-                                data-manga-id="<?= htmlspecialchars($m['manga_id']) ?>" title="Favoritkan">
-                            <i class="bi <?= !empty($m['is_favorite']) ? 'bi-star-fill' : 'bi-star' ?>"></i>
-                        </button>
-                    </div>
-                    <div class="card-body p-2 d-flex flex-column justify-content-between">
-                        <div class="card-title text-truncate mb-1" title="<?= htmlspecialchars($m['title']) ?>"><?= htmlspecialchars($m['title']) ?></div>
-                        <div class="d-flex align-items-center justify-content-between">
-                            <span class="badge text-bg-secondary fw-normal">Ch. <?= (int) $m['latest_chapter_number'] ?></span>
-                            <?php if (!empty($m['rating'])): ?>
-                                <small class="text-warning fw-semibold"><i class="bi bi-star-fill"></i> <?= htmlspecialchars($m['rating']) ?></small>
-                            <?php endif; ?>
+            <div class="col manga-item-col" data-manga-id="<?= htmlspecialchars($m['manga_id']) ?>">
+                <div class="card h-100 manga-card">
+                    <input type="checkbox" class="batch-checkbox" value="<?= htmlspecialchars($m['manga_id']) ?>">
+                    <a class="text-decoration-none color-inherit flex-grow-1" href="manga.php?manga_id=<?= urlencode($m['manga_id']) ?>"
+                       data-title="<?= htmlspecialchars(mb_strtolower($m['title'])) ?>"
+                       data-id="<?= htmlspecialchars(mb_strtolower($m['manga_id'])) ?>"
+                       data-author="<?= htmlspecialchars(mb_strtolower($m['author'] ?? '')) ?>"
+                       data-genres="<?= htmlspecialchars(mb_strtolower($m['genres'] ?? '')) ?>"
+                       data-favorite="<?= !empty($m['is_favorite']) ? '1' : '0' ?>">
+                        <div class="img-wrapper skeleton-shimmer">
+                            <img src="<?= htmlspecialchars($m['cover_image_url']) ?>" class="card-img-top" alt="<?= htmlspecialchars($m['title']) ?>" loading="lazy" onload="this.classList.add('loaded'); this.parentElement.classList.remove('skeleton-shimmer');">
+                            <button type="button" class="btn position-absolute top-0 end-0 m-2 rounded-circle fav-star <?= !empty($m['is_favorite']) ? 'active' : '' ?>"
+                                    data-manga-id="<?= htmlspecialchars($m['manga_id']) ?>" title="Favoritkan">
+                                <i class="bi <?= !empty($m['is_favorite']) ? 'bi-star-fill' : 'bi-star' ?>"></i>
+                            </button>
                         </div>
-                    </div>
-                </a>
+                        <div class="card-body p-2 d-flex flex-column justify-content-between">
+                            <div class="card-title text-truncate mb-1" title="<?= htmlspecialchars($m['title']) ?>"><?= htmlspecialchars($m['title']) ?></div>
+                            <div class="d-flex align-items-center justify-content-between">
+                                <span class="badge text-bg-secondary fw-normal">Ch. <?= (int) $m['latest_chapter_number'] ?></span>
+                                <?php if (!empty($m['rating'])): ?>
+                                    <small class="text-warning fw-semibold"><i class="bi bi-star-fill"></i> <?= htmlspecialchars($m['rating']) ?></small>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </a>
+                </div>
             </div>
         <?php endforeach; ?>
     </div>
@@ -349,44 +345,44 @@ sort($allGenres);
     <!-- List View Container (Hidden by default) -->
     <div class="d-flex flex-column gap-2" id="mangaList" style="display: none !important;">
         <?php foreach ($mangas as $m): ?>
-            <div class="manga-item-row col-12">
-                <a class="text-decoration-none color-inherit manga-list-item d-flex align-items-center p-2"
-                   href="manga.php?manga_id=<?= urlencode($m['manga_id']) ?>"
-                   data-title="<?= htmlspecialchars(mb_strtolower($m['title'])) ?>"
-                   data-id="<?= htmlspecialchars(mb_strtolower($m['manga_id'])) ?>"
-                   data-author="<?= htmlspecialchars(mb_strtolower($m['author'] ?? '')) ?>"
-                   data-genres="<?= htmlspecialchars(mb_strtolower($m['genres'] ?? '')) ?>"
-                   data-favorite="<?= !empty($m['is_favorite']) ? '1' : '0' ?>">
-                    <div class="list-img-wrap rounded me-3 skeleton-shimmer">
-                        <img src="<?= htmlspecialchars($m['cover_image_url']) ?>" alt="<?= htmlspecialchars($m['title']) ?>" loading="lazy" onload="this.classList.add('loaded'); this.parentElement.classList.remove('skeleton-shimmer');">
-                    </div>
-                    <div class="flex-grow-1 min-w-0 me-2">
-                        <div class="d-flex align-items-center gap-2 mb-1">
-                            <h2 class="h6 mb-0 text-truncate font-weight-bold brand-font" style="color: var(--bs-body-color)"><?= htmlspecialchars($m['title']) ?></h2>
-                            <?php if (!empty($m['rating'])): ?>
-                                <span class="badge text-bg-warning text-dark"><i class="bi bi-star-fill"></i> <?= htmlspecialchars($m['rating']) ?></span>
-                            <?php endif; ?>
+            <div class="manga-item-row col-12" data-manga-id="<?= htmlspecialchars($m['manga_id']) ?>">
+                <div class="manga-list-item d-flex align-items-center p-2">
+                    <input type="checkbox" class="batch-checkbox ms-2 me-1" value="<?= htmlspecialchars($m['manga_id']) ?>">
+                    <a class="text-decoration-none color-inherit d-flex align-items-center flex-grow-1 min-w-0"
+                       href="manga.php?manga_id=<?= urlencode($m['manga_id']) ?>"
+                       data-title="<?= htmlspecialchars(mb_strtolower($m['title'])) ?>"
+                       data-id="<?= htmlspecialchars(mb_strtolower($m['manga_id'])) ?>"
+                       data-author="<?= htmlspecialchars(mb_strtolower($m['author'] ?? '')) ?>"
+                       data-genres="<?= htmlspecialchars(mb_strtolower($m['genres'] ?? '')) ?>"
+                       data-favorite="<?= !empty($m['is_favorite']) ? '1' : '0' ?>">
+                        <div class="list-img-wrap rounded me-3 skeleton-shimmer">
+                            <img src="<?= htmlspecialchars($m['cover_image_url']) ?>" alt="<?= htmlspecialchars($m['title']) ?>" loading="lazy" onload="this.classList.add('loaded'); this.parentElement.classList.remove('skeleton-shimmer');">
                         </div>
-                        <?php if (!empty($m['alternative_title'])): ?>
-                            <div class="small text-secondary text-truncate mb-1"><?= htmlspecialchars($m['alternative_title']) ?></div>
-                        <?php endif; ?>
-                        <div class="d-flex flex-wrap align-items-center gap-2 small text-secondary">
-                            <span class="badge text-bg-primary">Ch. <?= (int) $m['latest_chapter_number'] ?> Tersimpan</span>
-                            <?php if (!empty($m['author'])): ?>
-                                <span><i class="bi bi-person me-1"></i><?= htmlspecialchars($m['author']) ?></span>
+                        <div class="flex-grow-1 min-w-0 me-2">
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <h2 class="h6 mb-0 text-truncate font-weight-bold brand-font" style="color: var(--bs-body-color)"><?= htmlspecialchars($m['title']) ?></h2>
+                                <?php if (!empty($m['rating'])): ?>
+                                    <span class="badge text-bg-warning text-dark"><i class="bi bi-star-fill"></i> <?= htmlspecialchars($m['rating']) ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <?php if (!empty($m['alternative_title'])): ?>
+                                <div class="small text-secondary text-truncate mb-1"><?= htmlspecialchars($m['alternative_title']) ?></div>
                             <?php endif; ?>
-                            <?php if (!empty($m['genres'])): ?>
-                                <span class="text-truncate d-none d-sm-inline" style="max-width: 250px;"><i class="bi bi-tags me-1"></i><?= htmlspecialchars($m['genres']) ?></span>
-                            <?php endif; ?>
+                            <div class="d-flex flex-wrap align-items-center gap-2 small text-secondary">
+                                <span class="badge text-bg-primary">Ch. <?= (int) $m['latest_chapter_number'] ?> Tersimpan</span>
+                                <?php if (!empty($m['author'])): ?>
+                                    <span><i class="bi bi-person me-1"></i><?= htmlspecialchars($m['author']) ?></span>
+                                <?php endif; ?>
+                            </div>
                         </div>
-                    </div>
-                    <div class="flex-shrink-0 ms-auto text-end">
-                        <button type="button" class="btn rounded-circle fav-star <?= !empty($m['is_favorite']) ? 'active' : '' ?>"
-                                data-manga-id="<?= htmlspecialchars($m['manga_id']) ?>" title="Favoritkan">
-                            <i class="bi <?= !empty($m['is_favorite']) ? 'bi-star-fill' : 'bi-star' ?>"></i>
-                        </button>
-                    </div>
-                </a>
+                        <div class="flex-shrink-0 ms-auto text-end">
+                            <button type="button" class="btn rounded-circle fav-star <?= !empty($m['is_favorite']) ? 'active' : '' ?>"
+                                    data-manga-id="<?= htmlspecialchars($m['manga_id']) ?>" title="Favoritkan">
+                                <i class="bi <?= !empty($m['is_favorite']) ? 'bi-star-fill' : 'bi-star' ?>"></i>
+                            </button>
+                        </div>
+                    </a>
+                </div>
             </div>
         <?php endforeach; ?>
     </div>
@@ -394,12 +390,10 @@ sort($allGenres);
     <!-- Empty State: Belum ada manga di database -->
     <?php if (empty($mangas)): ?>
         <div class="empty-state-card my-4" id="emptyDatabaseState">
-            <div class="empty-icon-box">
-                <i class="bi bi-journal-plus"></i>
-            </div>
+            <div class="empty-icon-box"><i class="bi bi-journal-plus"></i></div>
             <h3 class="h4 brand-font mb-2">Perpustakaan Manga Anda Masih Kosong</h3>
             <p class="text-secondary mb-4 mx-auto" style="max-width: 480px;">
-                Mulai bangun koleksi manga pribadi Anda! Ambil <code class="text-primary">manga_id</code> dari URL manga di Shinigami, lalu tempelkan pada formulir di atas.
+                Mulai bangun koleksi manga pribadi Anda! Ambil <code class="text-primary">manga_id</code> dari Shinigami, lalu tempelkan pada formulir di atas.
             </p>
             <button type="button" class="btn btn-primary px-4 py-2 fw-semibold" onclick="document.getElementById('mangaIdInput').focus();">
                 <i class="bi bi-plus-lg me-1"></i> Tambahkan Manga Pertama
@@ -407,11 +401,9 @@ sort($allGenres);
         </div>
     <?php endif; ?>
 
-    <!-- Empty State: Hasil Pencarian / Filter Kosong -->
+    <!-- Empty State: Hasil Pencarian Kosong -->
     <div class="empty-state-card my-4" id="noResultState" style="display: none;">
-        <div class="empty-icon-box" style="color: #7c8194; background: rgba(124, 129, 148, 0.1);">
-            <i class="bi bi-search"></i>
-        </div>
+        <div class="empty-icon-box" style="color: #7c8194; background: rgba(124, 129, 148, 0.1);"><i class="bi bi-search"></i></div>
         <h3 class="h5 brand-font mb-2">Tidak Ada Manga yang Cocok</h3>
         <p class="text-secondary mb-3">Tidak ditemukan manga dengan kata kunci atau kriteria filter yang Anda pilih.</p>
         <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" id="resetFilterBtn">
@@ -421,6 +413,70 @@ sort($allGenres);
 
 </div>
 
+<!-- Floating Action Bar Mode Kelola / Batch Delete -->
+<div class="batch-action-bar" id="batchBar">
+    <span class="small fw-semibold me-2" id="selectedCountText">0 Terpilih</span>
+    <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill" id="selectAllBtn">Pilih Semua</button>
+    <button type="button" class="btn btn-sm btn-danger rounded-pill px-3" id="batchDeleteBtn" disabled>
+        <i class="bi bi-trash3-fill me-1"></i> Hapus Terpilih
+    </button>
+    <button type="button" class="btn btn-sm btn-close ms-1" id="cancelManageBtn" title="Batal Mode Kelola"></button>
+</div>
+
+<!-- Modal Backup & Restore -->
+<div class="modal fade" id="backupModal" tabindex="-1" aria-labelledby="backupModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title brand-font" id="backupModalLabel"><i class="bi bi-database-gear me-2 text-primary"></i>Backup & Restore Koleksi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-4">
+                    <h6 class="fw-bold mb-1"><i class="bi bi-download me-1 text-success"></i> 1. Ekspor Koleksi (Backup)</h6>
+                    <p class="small text-secondary mb-2">Unduh seluruh berkas cadangan koleksi manga, chapter, dan histori bacaan Anda dalam format JSON.</p>
+                    <a href="export.php" class="btn btn-outline-success btn-sm w-100 fw-semibold">
+                        <i class="bi bi-file-earmark-arrow-down me-1"></i> Unduh File JSON Backup
+                    </a>
+                </div>
+                <hr>
+                <div>
+                    <h6 class="fw-bold mb-1"><i class="bi bi-upload me-1 text-primary"></i> 2. Impor Koleksi (Restore)</h6>
+                    <p class="small text-secondary mb-2">Unggah berkas JSON cadangan untuk memulihkan koleksi manga ke database.</p>
+                    <form action="import.php" method="POST" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <input class="form-control form-control-sm" type="file" name="backup_file" accept=".json" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-sm w-100 fw-semibold">
+                            <i class="bi bi-file-earmark-arrow-up me-1"></i> Mulai Impor Data
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Konfirmasi Batch Delete -->
+<div class="modal fade" id="confirmBatchDeleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-danger">
+            <div class="modal-header text-danger">
+                <h5 class="modal-title brand-font"><i class="bi bi-exclamation-triangle-fill me-2"></i>Konfirmasi Hapus Massal</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Apakah Anda yakin ingin menghapus secara permanen <strong id="deleteCountModalText">0</strong> manga yang dipilih beserta seluruh chapter dan riwayatnya?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" class="btn btn-danger" id="executeBatchDeleteBtn"><i class="bi bi-trash3 me-1"></i> Ya, Hapus Sekarang</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
     // Theme Switcher Logic
     const themeToggleBtn = document.getElementById("themeToggle");
@@ -457,7 +513,6 @@ sort($allGenres);
 
     let activeGenre = null;
     let favOnly = false;
-    let currentView = localStorage.getItem("manga_view_mode") || "grid";
 
     function setChipActive(chip, active) {
         chip.classList.toggle("btn-primary", active);
@@ -477,14 +532,14 @@ sort($allGenres);
         };
 
         gridCols.forEach(col => {
-            const card = col.querySelector(".manga-card");
+            const card = col.querySelector("a");
             const match = checkMatch(card);
             col.style.display = match ? "" : "none";
             if (match) visibleCount++;
         });
 
         listRows.forEach(row => {
-            const card = row.querySelector(".manga-list-item");
+            const card = row.querySelector("a");
             const match = checkMatch(card);
             row.style.display = match ? "" : "none";
         });
@@ -493,17 +548,9 @@ sort($allGenres);
     }
 
     searchInput.addEventListener("input", applyFilters);
-
-    clearSearchBtn.addEventListener("click", () => {
-        searchInput.value = "";
-        applyFilters();
-        searchInput.focus();
-    });
-
+    clearSearchBtn.addEventListener("click", () => { searchInput.value = ""; applyFilters(); searchInput.focus(); });
     resetFilterBtn.addEventListener("click", () => {
-        searchInput.value = "";
-        activeGenre = null;
-        favOnly = false;
+        searchInput.value = ""; activeGenre = null; favOnly = false;
         chips.forEach(c => setChipActive(c, false));
         applyFilters();
     });
@@ -535,7 +582,6 @@ sort($allGenres);
     const mangaList = document.getElementById("mangaList");
 
     function setViewMode(mode) {
-        currentView = mode;
         localStorage.setItem("manga_view_mode", mode);
         if (mode === "grid") {
             mangaGrid.style.setProperty("display", "flex", "important");
@@ -552,14 +598,12 @@ sort($allGenres);
 
     viewGridBtn.addEventListener("click", () => setViewMode("grid"));
     viewListBtn.addEventListener("click", () => setViewMode("list"));
-    setViewMode(currentView);
+    setViewMode(localStorage.getItem("manga_view_mode") || "grid");
 
-    // Toggle favorit tanpa reload halaman
+    // Toggle Favorit
     document.querySelectorAll(".fav-star").forEach(star => {
         star.addEventListener("click", async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
+            e.preventDefault(); e.stopPropagation();
             const mangaId = star.dataset.mangaId;
             try {
                 const res = await fetch("toggle_favorite.php", {
@@ -571,21 +615,133 @@ sort($allGenres);
                 if (!data.success) { alert("Gagal update favorit: " + data.error); return; }
 
                 const isFav = data.is_favorite;
-                // Sync favorit di semua tombol dengan mangaId yang sama (baik di Grid maupun List)
                 document.querySelectorAll(`.fav-star[data-manga-id="${CSS.escape(mangaId)}"]`).forEach(s => {
                     const icon = s.querySelector("i");
                     s.classList.toggle("active", isFav);
                     icon.classList.toggle("bi-star-fill", isFav);
                     icon.classList.toggle("bi-star", !isFav);
-                    const item = s.closest(".manga-card, .manga-list-item");
+                    const item = s.closest("a");
                     if (item) item.dataset.favorite = isFav ? "1" : "0";
                 });
-
                 applyFilters();
-            } catch (err) {
-                alert("Gagal update favorit: " + err.message);
+            } catch (err) { alert("Gagal update favorit: " + err.message); }
+        });
+    });
+
+    // Mode Kelola & Batch Delete Logic
+    const toggleManageModeBtn = document.getElementById("toggleManageModeBtn");
+    const batchBar = document.getElementById("batchBar");
+    const cancelManageBtn = document.getElementById("cancelManageBtn");
+    const selectAllBtn = document.getElementById("selectAllBtn");
+    const batchDeleteBtn = document.getElementById("batchDeleteBtn");
+    const selectedCountText = document.getElementById("selectedCountText");
+    const confirmBatchDeleteModal = new bootstrap.Modal(document.getElementById("confirmBatchDeleteModal"));
+    const executeBatchDeleteBtn = document.getElementById("executeBatchDeleteBtn");
+    const deleteCountModalText = document.getElementById("deleteCountModalText");
+
+    let isManageMode = false;
+
+    function toggleManageMode(enable) {
+        isManageMode = enable !== undefined ? enable : !isManageMode;
+        document.body.classList.toggle("manage-mode", isManageMode);
+        batchBar.style.display = isManageMode ? "flex" : "none";
+        toggleManageModeBtn.classList.toggle("btn-primary", isManageMode);
+        toggleManageModeBtn.classList.toggle("btn-outline-secondary", !isManageMode);
+
+        if (!isManageMode) {
+            document.querySelectorAll(".batch-checkbox").forEach(cb => cb.checked = false);
+            updateBatchUI();
+        }
+    }
+
+    toggleManageModeBtn.addEventListener("click", () => toggleManageMode());
+    cancelManageBtn.addEventListener("click", () => toggleManageMode(false));
+
+    function getSelectedMangaIds() {
+        const checked = Array.from(document.querySelectorAll(".batch-checkbox:checked"));
+        return Array.from(new Set(checked.map(cb => cb.value)));
+    }
+
+    function updateBatchUI() {
+        const selected = getSelectedMangaIds();
+        selectedCountText.textContent = `${selected.length} Terpilih`;
+        batchDeleteBtn.disabled = selected.length === 0;
+    }
+
+    document.querySelectorAll(".batch-checkbox").forEach(cb => {
+        cb.addEventListener("change", (e) => {
+            // Saling sync antara checkbox di Grid & List
+            const val = e.target.value;
+            document.querySelectorAll(`.batch-checkbox[value="${CSS.escape(val)}"]`).forEach(c => c.checked = e.target.checked);
+            updateBatchUI();
+        });
+    });
+
+    selectAllBtn.addEventListener("click", () => {
+        const allCheckboxes = Array.from(document.querySelectorAll(".batch-checkbox"));
+        const visibleCols = gridCols.filter(col => col.style.display !== "none");
+        const visibleIds = visibleCols.map(col => col.dataset.mangaId);
+
+        const areAllVisibleSelected = visibleIds.every(id => {
+            const cb = document.querySelector(`.batch-checkbox[value="${CSS.escape(id)}"]`);
+            return cb && cb.checked;
+        });
+
+        allCheckboxes.forEach(cb => {
+            if (visibleIds.includes(cb.value)) {
+                cb.checked = !areAllVisibleSelected;
             }
         });
+        updateBatchUI();
+    });
+
+    batchDeleteBtn.addEventListener("click", () => {
+        const selected = getSelectedMangaIds();
+        if (selected.length === 0) return;
+        deleteCountModalText.textContent = selected.length;
+        confirmBatchDeleteModal.show();
+    });
+
+    executeBatchDeleteBtn.addEventListener("click", async () => {
+        const selected = getSelectedMangaIds();
+        if (selected.length === 0) return;
+
+        try {
+            executeBatchDeleteBtn.disabled = true;
+            executeBatchDeleteBtn.textContent = "Menghapus...";
+
+            const res = await fetch("delete_manga.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: "manga_ids=" + encodeURIComponent(JSON.stringify(selected))
+            });
+            const data = await res.json();
+            if (!data.success) {
+                alert("Gagal menghapus manga: " + data.error);
+                return;
+            }
+
+            // Hapus elemen dari DOM
+            selected.forEach(mId => {
+                document.querySelectorAll(`[data-manga-id="${CSS.escape(mId)}"]`).forEach(el => el.remove());
+            });
+
+            confirmBatchDeleteModal.hide();
+            toggleManageMode(false);
+
+            // Update stats counter
+            const remaining = document.querySelectorAll("#mangaGrid .manga-item-col").length;
+            document.getElementById("statMangaCount").textContent = `${remaining} Manga`;
+
+            if (remaining === 0) {
+                window.location.reload();
+            }
+        } catch (err) {
+            alert("Error: " + err.message);
+        } finally {
+            executeBatchDeleteBtn.disabled = false;
+            executeBatchDeleteBtn.innerHTML = '<i class="bi bi-trash3 me-1"></i> Ya, Hapus Sekarang';
+        }
     });
 </script>
 </body>

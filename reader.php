@@ -103,39 +103,48 @@ $allChapters = $stmt->fetchAll();
         .theme-toggle-btn {
             width: 34px; height: 34px; border-radius: 50%; padding: 0;
             display: flex; align-items: center; justify-content: center;
-            border: 1px solid var(--topbar-border);
-            background: transparent;
-            color: var(--bs-body-color);
-            transition: all 0.2s ease;
+            border: 1px solid var(--topbar-border); background: transparent;
+            color: var(--bs-body-color); transition: all 0.2s ease;
         }
 
         /* Chapter Images Wrapper & Skeleton */
-        .reader { width: 100%; max-width: 800px; margin: 0 auto; }
+        .reader { width: 100%; max-width: 800px; margin: 0 auto; transition: max-width 0.2s ease; }
         .page-wrapper {
-            position: relative;
-            width: 100%;
-            min-height: 400px;
-            background: var(--shimmer-bg-1);
-            margin-bottom: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            position: relative; width: 100%; min-height: 400px; background: var(--shimmer-bg-1);
+            margin-bottom: 0; display: flex; align-items: center; justify-content: center;
         }
         .page-wrapper img {
-            width: 100%; max-width: 800px; display: block; height: auto; opacity: 0;
-            transition: opacity 0.35s ease;
+            width: 100%; display: block; height: auto; opacity: 0; transition: opacity 0.35s ease;
         }
         .page-wrapper img.loaded { opacity: 1; }
 
         /* Skeleton Shimmer Loading */
         .skeleton-shimmer {
             background: linear-gradient(90deg, var(--shimmer-bg-1) 25%, var(--shimmer-bg-2) 50%, var(--shimmer-bg-1) 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s infinite;
+            background-size: 200% 100%; animation: shimmer 1.5s infinite;
         }
         @keyframes shimmer {
             0% { background-position: 200% 0; }
             100% { background-position: -200% 0; }
+        }
+
+        /* Mode Single Page Layout */
+        .mode-single-page .page-wrapper { display: none !important; }
+        .mode-single-page .page-wrapper.active-page { display: flex !important; }
+        .mode-single-page .end-chapter-card { display: none; }
+        .mode-single-page .end-chapter-card.active-end-card { display: block; }
+
+        /* Single Page Controls Bar */
+        .single-page-controls {
+            display: none; align-items: center; justify-content: center; gap: 1rem;
+            margin: 1.5rem 0 0.5rem;
+        }
+        .mode-single-page .single-page-controls { display: flex; }
+
+        /* Image Error Card */
+        .image-error-card {
+            background: var(--topbar-bg); border: 1px solid #dc3545; border-radius: 12px;
+            padding: 2rem 1.5rem; text-align: center; width: 100%; max-width: 500px; margin: 1.5rem auto;
         }
 
         /* Floating Nav Bar */
@@ -148,9 +157,7 @@ $allChapters = $stmt->fetchAll();
             border: 1px solid rgba(255,255,255,0.1);
         }
         [data-bs-theme="light"] .floating-nav {
-            background: rgba(255, 255, 255, 0.9);
-            box-shadow: 0 6px 25px rgba(0,0,0,0.15);
-            border: 1px solid rgba(0,0,0,0.1);
+            background: rgba(255, 255, 255, 0.9); box-shadow: 0 6px 25px rgba(0,0,0,0.15); border: 1px solid rgba(0,0,0,0.1);
         }
         .floating-nav .btn {
             width: 40px; height: 40px; border-radius: 50%; padding: 0;
@@ -178,13 +185,9 @@ $allChapters = $stmt->fetchAll();
 
         /* End Chapter Banner */
         .end-chapter-card {
-            max-width: 700px;
-            margin: 2.5rem auto 1rem;
-            background: var(--topbar-bg);
-            border: 1px solid var(--topbar-border);
-            border-radius: 16px;
-            padding: 2rem;
-            text-align: center;
+            max-width: 700px; margin: 2.5rem auto 1rem;
+            background: var(--topbar-bg); border: 1px solid var(--topbar-border);
+            border-radius: 16px; padding: 2rem; text-align: center; width: 100%;
         }
 
         /* Toast Hint */
@@ -203,25 +206,36 @@ $allChapters = $stmt->fetchAll();
 
     <!-- Top Navigation Bar -->
     <nav class="topbar sticky-top d-flex justify-content-between align-items-center px-3 py-2">
-        <a class="d-inline-flex align-items-center gap-2 text-decoration-none fw-medium text-truncate" href="manga.php?manga_id=<?= urlencode($manga['manga_id']) ?>" style="max-width: 70%;">
+        <a class="d-inline-flex align-items-center gap-2 text-decoration-none fw-medium text-truncate" href="manga.php?manga_id=<?= urlencode($manga['manga_id']) ?>" style="max-width: 65%;">
             <i class="bi bi-arrow-left"></i> <span class="text-truncate"><?= htmlspecialchars($manga['title']) ?></span>
         </a>
         <div class="d-flex align-items-center gap-2">
             <span class="badge text-bg-primary">Ch. <?= (int) $chapter['chapter_number'] ?></span>
+            <button type="button" class="theme-toggle-btn" data-bs-toggle="modal" data-bs-target="#readerSettingsModal" title="Pengaturan Tampilan Pembaca">
+                <i class="bi bi-gear-fill text-warning"></i>
+            </button>
             <button type="button" class="theme-toggle-btn" id="themeToggle" title="Ganti Mode Gelap/Terang">
                 <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
             </button>
         </div>
     </nav>
 
+    <!-- Single Page Controls Top Bar -->
+    <div class="single-page-controls" id="singlePageControlsTop">
+        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" onclick="prevSinglePage()"><i class="bi bi-chevron-left me-1"></i> Halaman Sebelumnya</button>
+        <span class="fw-semibold small" id="pageIndicatorText">Halaman 1 / <?= count($images) ?></span>
+        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" onclick="nextSinglePage()">Halaman Selanjutnya <i class="bi bi-chevron-right ms-1"></i></button>
+    </div>
+
     <!-- Reader Container -->
-    <div class="reader d-flex flex-column align-items-center">
-        <?php foreach ($images as $img): ?>
-            <div class="page-wrapper skeleton-shimmer">
+    <div class="reader d-flex flex-column align-items-center" id="readerContainer">
+        <?php foreach ($images as $idx => $img): ?>
+            <div class="page-wrapper skeleton-shimmer <?= $idx === 0 ? 'active-page' : '' ?>" data-page-number="<?= $idx + 1 ?>">
                 <img src="<?= htmlspecialchars($chapter['base_url'] . $chapter['image_path'] . $img['filename']) ?>"
                      alt="Halaman <?= (int) $img['page_number'] ?>"
                      loading="lazy"
-                     onload="this.classList.add('loaded'); this.parentElement.classList.remove('skeleton-shimmer'); this.parentElement.style.minHeight = 'auto';">
+                     onload="this.classList.add('loaded'); this.parentElement.classList.remove('skeleton-shimmer'); this.parentElement.style.minHeight = 'auto';"
+                     onerror="handleImageError(this, <?= (int) $img['page_number'] ?>, <?= json_encode($chapter['base_url'] . $chapter['image_path'] . $img['filename']) ?>)">
             </div>
         <?php endforeach; ?>
 
@@ -275,31 +289,63 @@ $allChapters = $stmt->fetchAll();
     </div>
 
     <!-- Tap Zones -->
-    <div class="tap-zone tap-zone-left d-none d-md-flex" onclick="goPrev()" title="Klik untuk Chapter Sebelumnya">
+    <div class="tap-zone tap-zone-left d-none d-md-flex" onclick="handleTapZone('left')" title="Chapter/Halaman Sebelumnya">
         <i class="bi bi-chevron-left"></i>
     </div>
-    <div class="tap-zone tap-zone-right d-none d-md-flex" onclick="goNext()" title="Klik untuk Chapter Selanjutnya">
+    <div class="tap-zone tap-zone-right d-none d-md-flex" onclick="handleTapZone('right')" title="Chapter/Halaman Selanjutnya">
         <i class="bi bi-chevron-right"></i>
     </div>
 
-    <!-- Keyboard Shortcuts Modal Hint -->
+    <!-- Modal Pengaturan Reader -->
+    <div class="modal fade" id="readerSettingsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h6 class="modal-title brand-font"><i class="bi bi-sliders me-2 text-warning"></i>Pengaturan Reader</h6>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">Lebar Gambar Reader</label>
+                        <select class="form-select form-select-sm" id="settingWidthSelect">
+                            <option value="600px">Compact (600px)</option>
+                            <option value="800px">Standard (800px)</option>
+                            <option value="100%">Full Width (100%)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label small fw-semibold">Mode Tampilan Layout</label>
+                        <select class="form-select form-select-sm" id="settingLayoutSelect">
+                            <option value="webtoon">Webtoon (Scroll Vertikal)</option>
+                            <option value="single_page">Single Page (Per Halaman)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Shortcut Hint -->
     <div class="toast shortcut-toast" id="shortcutToast">
         <div class="d-flex justify-content-between align-items-center mb-1">
             <strong class="text-primary"><i class="bi bi-keyboard me-1"></i> Keyboard Shortcuts</strong>
             <button type="button" class="btn-close btn-close-white btn-sm" onclick="document.getElementById('shortcutToast').style.display='none'"></button>
         </div>
         <ul class="list-unstyled mb-0 small text-secondary">
-            <li><kbd>→</kbd> / <kbd>D</kbd> : Chapter Selanjutnya</li>
-            <li><kbd>←</kbd> / <kbd>A</kbd> : Chapter Sebelumnya</li>
+            <li><kbd>→</kbd> / <kbd>D</kbd> : Next Chapter / Page</li>
+            <li><kbd>←</kbd> / <kbd>A</kbd> : Prev Chapter / Page</li>
             <li><kbd>Space</kbd> : Scroll Turun</li>
             <li><kbd>Home</kbd> / <kbd>End</kbd> : Puncak / Dasar Halaman</li>
         </ul>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         const prevChapterId = <?= $prevCh ? json_encode($prevCh['chapter_id']) : 'null' ?>;
         const nextChapterId = <?= $nextCh ? json_encode($nextCh['chapter_id']) : 'null' ?>;
         const nextChapterImageUrls = <?= json_encode($nextChapterImageUrls) ?>;
+        const totalPages = <?= count($images) ?>;
+        let currentPageIndex = 0;
 
         function goPrev() {
             if (prevChapterId) window.location.href = "reader.php?chapter_id=" + encodeURIComponent(prevChapterId);
@@ -327,26 +373,110 @@ $allChapters = $stmt->fetchAll();
                 themeToggleBtn.title = "Ganti ke Mode Gelap";
             }
         }
-
-        const currentTheme = localStorage.getItem("manga_theme") || "dark";
-        updateThemeUI(currentTheme);
-
+        updateThemeUI(localStorage.getItem("manga_theme") || "dark");
         themeToggleBtn.addEventListener("click", () => {
             const newTheme = document.documentElement.getAttribute("data-bs-theme") === "dark" ? "light" : "dark";
             updateThemeUI(newTheme);
         });
 
+        // Reader Width & Layout Mode Settings
+        const settingWidthSelect = document.getElementById("settingWidthSelect");
+        const settingLayoutSelect = document.getElementById("settingLayoutSelect");
+        const readerContainer = document.getElementById("readerContainer");
+        const pageIndicatorText = document.getElementById("pageIndicatorText");
+        const pages = Array.from(document.querySelectorAll(".page-wrapper"));
+
+        function applyReaderSettings() {
+            const width = localStorage.getItem("manga_reader_width") || "800px";
+            const layout = localStorage.getItem("manga_reader_layout") || "webtoon";
+            const endCard = document.querySelector(".end-chapter-card");
+
+            readerContainer.style.maxWidth = width;
+            settingWidthSelect.value = width;
+            settingLayoutSelect.value = layout;
+
+            if (layout === "single_page") {
+                document.body.classList.add("mode-single-page");
+                updateSinglePageUI();
+            } else {
+                document.body.classList.remove("mode-single-page");
+                if (endCard) endCard.classList.remove("active-end-card");
+            }
+        }
+
+        settingWidthSelect.addEventListener("change", (e) => {
+            localStorage.setItem("manga_reader_width", e.target.value);
+            applyReaderSettings();
+        });
+
+        settingLayoutSelect.addEventListener("change", (e) => {
+            localStorage.setItem("manga_reader_layout", e.target.value);
+            applyReaderSettings();
+        });
+
+        function updateSinglePageUI() {
+            const endCard = document.querySelector(".end-chapter-card");
+            pages.forEach((p, idx) => {
+                p.classList.toggle("active-page", idx === currentPageIndex);
+            });
+
+            pageIndicatorText.textContent = `Halaman ${currentPageIndex + 1} / ${totalPages}`;
+
+            if (endCard) {
+                if (currentPageIndex === totalPages - 1) {
+                    endCard.classList.add("active-end-card");
+                } else {
+                    endCard.classList.remove("active-end-card");
+                }
+            }
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function prevSinglePage() {
+            if (currentPageIndex > 0) {
+                currentPageIndex--;
+                updateSinglePageUI();
+            } else {
+                goPrev();
+            }
+        }
+
+        function nextSinglePage() {
+            if (currentPageIndex < totalPages - 1) {
+                currentPageIndex++;
+                updateSinglePageUI();
+            } else {
+                goNext();
+            }
+        }
+
+        function handleTapZone(direction) {
+            const layout = localStorage.getItem("manga_reader_layout") || "webtoon";
+            if (layout === "single_page") {
+                if (direction === "left") prevSinglePage();
+                else nextSinglePage();
+            } else {
+                if (direction === "left") window.scrollBy({ top: -400, behavior: 'smooth' });
+                else window.scrollBy({ top: 400, behavior: 'smooth' });
+            }
+        }
+
+        applyReaderSettings();
+
         // Reading Progress Bar Indicator
         const progressBar = document.getElementById("progressBar");
         function updateProgressBar() {
-            const scrollTotal = document.documentElement.scrollHeight - window.innerHeight;
-            if (scrollTotal <= 0) {
-                progressBar.style.width = "100%";
-                return;
+            const layout = localStorage.getItem("manga_reader_layout") || "webtoon";
+            if (layout === "single_page") {
+                const pct = Math.min(100, Math.round(((currentPageIndex + 1) / totalPages) * 100));
+                progressBar.style.width = pct + "%";
+            } else {
+                const scrollTotal = document.documentElement.scrollHeight - window.innerHeight;
+                if (scrollTotal <= 0) { progressBar.style.width = "100%"; return; }
+                const percentage = Math.min(100, Math.max(0, (window.scrollY / scrollTotal) * 100));
+                progressBar.style.width = percentage + "%";
             }
-            const currentScroll = window.scrollY;
-            const percentage = Math.min(100, Math.max(0, (currentScroll / scrollTotal) * 100));
-            progressBar.style.width = percentage + "%";
         }
         window.addEventListener("scroll", updateProgressBar);
         window.addEventListener("resize", updateProgressBar);
@@ -355,11 +485,12 @@ $allChapters = $stmt->fetchAll();
         // Keyboard Shortcuts
         document.addEventListener("keydown", (e) => {
             if (["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName)) return;
+            const layout = localStorage.getItem("manga_reader_layout") || "webtoon";
 
             if (e.key === "ArrowRight" || e.key === "d" || e.key === "D") {
-                if (nextChapterId) goNext();
+                if (layout === "single_page") nextSinglePage(); else goNext();
             } else if (e.key === "ArrowLeft" || e.key === "a" || e.key === "A") {
-                if (prevChapterId) goPrev();
+                if (layout === "single_page") prevSinglePage(); else goPrev();
             } else if (e.key === "?" || e.key === "k" || e.key === "K") {
                 const toast = document.getElementById("shortcutToast");
                 toast.style.display = toast.style.display === "block" ? "none" : "block";
@@ -371,14 +502,41 @@ $allChapters = $stmt->fetchAll();
             toast.style.display = toast.style.display === "block" ? "none" : "block";
         });
 
+        // Image Fallback & Retry Handler
+        function handleImageError(imgEl, pageNum, originalSrc) {
+            const wrapper = imgEl.parentElement;
+            wrapper.classList.remove("skeleton-shimmer");
+            wrapper.style.minHeight = "auto";
+
+            const errorCard = document.createElement("div");
+            errorCard.className = "image-error-card";
+            errorCard.innerHTML = `
+                <i class="bi bi-exclamation-octagon-fill text-danger fs-3 mb-2 d-block"></i>
+                <div class="small fw-semibold mb-2">Gambar Halaman ${pageNum} Gagal Dimuat</div>
+                <button type="button" class="btn btn-outline-danger btn-sm rounded-pill px-3" onclick="reloadChapterImage(this, '${originalSrc}')">
+                    <i class="bi bi-arrow-repeat me-1"></i> Muat Ulang Gambar
+                </button>
+            `;
+            imgEl.style.display = "none";
+            wrapper.appendChild(errorCard);
+        }
+
+        function reloadChapterImage(btnEl, originalSrc) {
+            const errorCard = btnEl.closest(".image-error-card");
+            const wrapper = errorCard.parentElement;
+            const imgEl = wrapper.querySelector("img");
+
+            errorCard.remove();
+            wrapper.classList.add("skeleton-shimmer");
+            imgEl.style.display = "block";
+            imgEl.src = originalSrc + "?retry=" + new Date().getTime();
+        }
+
         // Background Preloading Gambar Chapter Selanjutnya
         if (nextChapterImageUrls && nextChapterImageUrls.length > 0) {
             window.addEventListener("load", () => {
                 setTimeout(() => {
-                    nextChapterImageUrls.forEach(url => {
-                        const img = new Image();
-                        img.src = url;
-                    });
+                    nextChapterImageUrls.forEach(url => { const img = new Image(); img.src = url; });
                 }, 1000);
             });
         }
