@@ -2,9 +2,7 @@ name: Manga Reader Auto Sync Cron
 
 on:
   schedule:
-    # Berjalan otomatis setiap 3 jam sekali (pada menit ke-0)
     - cron: '0 */3 * * *'
-  # Memungkinkan pemicuan manual langsung dari tab Actions di GitHub
   workflow_dispatch:
 
 jobs:
@@ -15,17 +13,43 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Run Web Cron Sync Request
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install cloudscraper
+        run: pip install cloudscraper
+
+      - name: Run Web Cron Sync Request (bypass JS challenge InfinityFree)
         env:
           CRON_SECRET_KEY: ${{ secrets.CRON_SECRET_KEY }}
           SITE_URL: ${{ secrets.SITE_URL }}
         run: |
-          echo "Memanggil endpoint cron sync di: $SITE_URL/cron_update.php"
+          python3 - <<'EOF'
+          import os
+          import sys
+          import cloudscraper
 
-          # Mengirim HTTP request dengan User-Agent browser asli untuk menghindari pemblokiran sederhana
-          RESPONSE=$(curl -s -L -w "\nHTTP_STATUS:%{http_code}" \
-            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36" \
-            "$SITE_URL/cron_update.php?key=$CRON_SECRET_KEY")
+          site_url = os.environ["SITE_URL"].rstrip("/")
+          key = os.environ["CRON_SECRET_KEY"]
 
-          echo "Hasil Tanggapan Server:"
-          echo "$RESPONSE"
+          scraper = cloudscraper.create_scraper()
+
+          try:
+              resp = scraper.get(
+                  f"{site_url}/cron_update.php",
+                  params={"key": key},
+                  timeout=180,
+              )
+          except Exception as e:
+              print(f"Request gagal: {e}")
+              sys.exit(1)
+
+          print("HTTP Status:", resp.status_code)
+          print("Hasil Tanggapan Server:")
+          print(resp.text)
+
+          if resp.status_code != 200:
+              sys.exit(1)
+          EOF
