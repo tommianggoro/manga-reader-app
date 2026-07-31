@@ -18,59 +18,135 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Playwright
+      - name: Install dependencies
         run: |
-          pip install playwright==1.48.0
+          pip install playwright requests
           playwright install --with-deps chromium
 
-      - name: Run Web Cron Sync Request (bypass JS challenge InfinityFree via headless browser)
+      - name: Run Web Cron Sync Request & Notify Telegram
         env:
           CRON_SECRET_KEY: ${{ secrets.CRON_SECRET_KEY }}
           SITE_URL: ${{ secrets.SITE_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           python3 - <<'EOF'
           import os
           import sys
+          import json
+          import requests
           from playwright.sync_api import sync_playwright
 
           site_url = os.environ["SITE_URL"].rstrip("/")
           key = os.environ["CRON_SECRET_KEY"]
           target_url = f"{site_url}/cron_update.php?key={key}"
 
-          with sync_playwright() as p:
-              browser = p.chromium.launch()
-              page = browser.new_page(
-                  user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
-              )
+          bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
+          chat_id = os.environ.get("TELEGRAM_CHAT_ID")
 
+          def send_telegram(text: str):
+              if not bot_token or not chat_id:
+                  print("⚠️ TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID belum di-set, notifikasi dilewati.")
+                  return
               try:
-                  # Kunjungan pertama: memicu & menjalankan JS challenge (aes.js),
-                  # browser otomatis mengikuti redirect location.href yang di-set skrip.
-                  page.goto(target_url, wait_until="networkidle", timeout=120000)
+                  resp = requests.post(
+                      f"https://api.telegram.org/bot{bot_token}/sendMessage",
+                      data={
+                          "chat_id": chat_id,
+                          "text": text,
+                          "parse_mode": "HTML",
+                          "disable_web_page_preview": True,
+                      },
+                      timeout=15,
+                  )
+                  if resp.status_code != 200:
+                      print(f"⚠️ Gagal kirim notifikasi Telegram: {resp.status_code} {resp.text}")
+              except Exception as e:
+                  print(f"⚠️ Error saat kirim notifikasi Telegram: {e}")
 
-                  # Cron sync bisa berjalan lama (loop semua manga), tunggu sampai
-                  # response body benar-benar berisi hasil JSON dari cron_update.php.
-                  page.wait_for_timeout(3000)
+          # ==== Jalankan sync via headless browser (bypass JS challenge InfinityFree) ====
+          body_text = None
+          fetch_error = None
 
-                  body_text = page.inner_text("body")
-
-                  # Kalau masih halaman challenge (bukan JSON), coba kunjungi ulang sekali
-                  # -- cookie __test dari kunjungan pertama seharusnya sudah membuat
-                  # kunjungan kedua lolos langsung ke cron_update.php.
-                  if body_text.strip().startswith("<") or "aes.js" in body_text:
+          try:
+              with sync_playwright() as p:
+                  browser = p.chromium.launch()
+                  page = browser.new_page(
+                      user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+                  )
+                  try:
                       page.goto(target_url, wait_until="networkidle", timeout=120000)
                       page.wait_for_timeout(3000)
                       body_text = page.inner_text("body")
 
-                  print("Hasil Tanggapan Server:")
-                  print(body_text)
+                      if body_text.strip().startswith("<") or "aes.js" in body_text:
+                          page.goto(target_url, wait_until="networkidle", timeout=120000)
+                          page.wait_for_timeout(3000)
+                          body_text = page.inner_text("body")
+                  finally:
+                      browser.close()
+          except Exception as e:
+              fetch_error = str(e)
 
-                  if body_text.strip().startswith("{") or '"success"' in body_text:
-                      print("\n✅ Cron sync berhasil dijalankan.")
-                  else:
-                      print("\n⚠️ Respons tidak terlihat seperti JSON, mohon cek manual.")
-                      sys.exit(1)
+          print("Hasil Tanggapan Server:")
+          print(body_text)
 
-              finally:
-                  browser.close()
+          # ==== Kalau request-nya sendiri gagal total (bukan error dari PHP) ====
+          if fetch_error or not body_text or not body_text.strip().startswith("{"):
+              msg = (
+                  "🚨 <b>Manga Cron Sync GAGAL</b>\n\n"
+                  f"Request ke server tidak menghasilkan respons JSON yang valid.\n"
+                  f"Kemungkinan JS challenge InfinityFree berubah atau server down.\n\n"
+                  f"<b>Error:</b> {fetch_error or 'Response bukan JSON (kemungkinan masih halaman challenge)'}"
+              )
+              send_telegram(msg)
+              sys.exit(1)
+
+          # ==== Parse hasil JSON dari cron_update.php ====
+          try:
+              data = json.loads(body_text)
+          except json.JSONDecodeError as e:
+              send_telegram(f"🚨 <b>Manga Cron Sync GAGAL</b>\n\nGagal parse JSON respons: {e}")
+              sys.exit(1)
+
+          if not data.get("success"):
+              send_telegram(f"🚨 <b>Manga Cron Sync GAGAL</b>\n\n{data.get('error', 'Unknown error')}")
+              sys.exit(1)
+
+          results = data.get("results", [])
+          total_new = data.get("total_new_chapters", 0)
+          exec_time = data.get("execution_time_seconds", 0)
+
+          updated_mangas = [r for r in results if r.get("status") == "success" and r.get("new_chapters", 0) > 0]
+          failed_mangas = [r for r in results if r.get("status") == "error"]
+
+          # ==== Bangun pesan notifikasi ====
+          message_parts = []
+
+          if updated_mangas:
+              lines = "\n".join(
+                  f"• <b>{m['title']}</b>: +{m['new_chapters']} chapter baru"
+                  for m in updated_mangas
+              )
+              message_parts.append(
+                  f"📚 <b>Chapter Baru Terdeteksi!</b>\n\n{lines}\n\n"
+                  f"Total: {total_new} chapter baru dari {len(updated_mangas)} manga."
+              )
+
+          if failed_mangas:
+              lines = "\n".join(
+                  f"• <b>{m['title']}</b>: {m.get('error', 'Unknown error')}"
+                  for m in failed_mangas
+              )
+              message_parts.append(f"⚠️ <b>Manga Gagal Disinkronkan</b>\n\n{lines}")
+
+          if message_parts:
+              footer = f"\n\n⏱ Selesai dalam {exec_time:.2f}s | {len(results)} manga dicek"
+              send_telegram("\n\n".join(message_parts) + footer)
+              print("✅ Notifikasi Telegram terkirim.")
+          else:
+              print("✅ Sync sukses, tidak ada chapter baru maupun error. Notifikasi dilewati.")
+
+          if failed_mangas:
+              sys.exit(1)
           EOF
