@@ -18,10 +18,12 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install cloudscraper
-        run: pip install cloudscraper
+      - name: Install Playwright
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
 
-      - name: Run Web Cron Sync Request (bypass JS challenge InfinityFree)
+      - name: Run Web Cron Sync Request (bypass JS challenge InfinityFree via headless browser)
         env:
           CRON_SECRET_KEY: ${{ secrets.CRON_SECRET_KEY }}
           SITE_URL: ${{ secrets.SITE_URL }}
@@ -29,27 +31,46 @@ jobs:
           python3 - <<'EOF'
           import os
           import sys
-          import cloudscraper
+          from playwright.sync_api import sync_playwright
 
           site_url = os.environ["SITE_URL"].rstrip("/")
           key = os.environ["CRON_SECRET_KEY"]
+          target_url = f"{site_url}/cron_update.php?key={key}"
 
-          scraper = cloudscraper.create_scraper()
-
-          try:
-              resp = scraper.get(
-                  f"{site_url}/cron_update.php",
-                  params={"key": key},
-                  timeout=180,
+          with sync_playwright() as p:
+              browser = p.chromium.launch()
+              page = browser.new_page(
+                  user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
               )
-          except Exception as e:
-              print(f"Request gagal: {e}")
-              sys.exit(1)
 
-          print("HTTP Status:", resp.status_code)
-          print("Hasil Tanggapan Server:")
-          print(resp.text)
+              try:
+                  # Kunjungan pertama: memicu & menjalankan JS challenge (aes.js),
+                  # browser otomatis mengikuti redirect location.href yang di-set skrip.
+                  page.goto(target_url, wait_until="networkidle", timeout=120000)
 
-          if resp.status_code != 200:
-              sys.exit(1)
+                  # Cron sync bisa berjalan lama (loop semua manga), tunggu sampai
+                  # response body benar-benar berisi hasil JSON dari cron_update.php.
+                  page.wait_for_timeout(3000)
+
+                  body_text = page.inner_text("body")
+
+                  # Kalau masih halaman challenge (bukan JSON), coba kunjungi ulang sekali
+                  # -- cookie __test dari kunjungan pertama seharusnya sudah membuat
+                  # kunjungan kedua lolos langsung ke cron_update.php.
+                  if body_text.strip().startswith("<") or "aes.js" in body_text:
+                      page.goto(target_url, wait_until="networkidle", timeout=120000)
+                      page.wait_for_timeout(3000)
+                      body_text = page.inner_text("body")
+
+                  print("Hasil Tanggapan Server:")
+                  print(body_text)
+
+                  if body_text.strip().startswith("{") or '"success"' in body_text:
+                      print("\n✅ Cron sync berhasil dijalankan.")
+                  else:
+                      print("\n⚠️ Respons tidak terlihat seperti JSON, mohon cek manual.")
+                      sys.exit(1)
+
+              finally:
+                  browser.close()
           EOF
