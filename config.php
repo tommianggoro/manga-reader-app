@@ -1,9 +1,13 @@
 <?php
-// Isi sesuai kredensial database dari panel hosting kamu (cPanel/hPanel/dll)
-$DB_HOST = "localhost";
-$DB_NAME = "manga_reader";
-$DB_USER = "root";
-$DB_PASS = "";
+require_once __DIR__ . "/env_loader.php";
+loadEnv(__DIR__ . "/.env");
+
+// Kredensial database sekarang diambil dari file .env (lihat .env.example untuk template).
+// Kalau .env tidak ditemukan, config akan jatuh ke nilai default di bawah ini.
+$DB_HOST = env("DB_HOST", "localhost");
+$DB_NAME = env("DB_NAME", "manga_reader");
+$DB_USER = env("DB_USER", "root");
+$DB_PASS = env("DB_PASS", "");
 
 try {
     $pdo = new PDO(
@@ -16,20 +20,20 @@ try {
     die("Koneksi database gagal: " . $e->getMessage());
 }
 
-// Password sekarang disimpan dalam bentuk HASH, bukan teks biasa.
+// Password disimpan dalam bentuk HASH, bukan teks biasa, diambil dari .env.
 // Cara ganti password:
 //   1. Upload sementara generate_password_hash.php ke server
 //   2. Buka di browser: yoursite.com/generate_password_hash.php?pw=passwordbarukamu
-//   3. Salin hash yang muncul, tempel di bawah ini
+//   3. Salin hash yang muncul, tempel ke file .env sebagai ACCESS_PASSWORD_HASH
 //   4. HAPUS generate_password_hash.php dari server
-define("ACCESS_PASSWORD_HASH", '$2y$10$KeXJv3zEhzGE.5i8L4zEZ./DuU9FJ4/PzZWC1/RqKvdn5EeEs.N2W');
+define("ACCESS_PASSWORD_HASH", env("ACCESS_PASSWORD_HASH", ""));
 
 // Rate limiting: berapa kali percobaan salah sebelum dikunci sementara, dan berapa lama.
-define("MAX_LOGIN_ATTEMPTS", 5);
-define("LOGIN_LOCKOUT_MINUTES", 15);
+define("MAX_LOGIN_ATTEMPTS", (int) env("MAX_LOGIN_ATTEMPTS", 5));
+define("LOGIN_LOCKOUT_MINUTES", (int) env("LOGIN_LOCKOUT_MINUTES", 15));
 
 // Secret Key untuk otentikasi eksekusi Cronjob Web (misal: GitHub Actions / Webhook)
-define("CRON_SECRET_KEY", "manga_reader_secret_key_123");
+define("CRON_SECRET_KEY", env("CRON_SECRET_KEY", ""));
 
 function requireAuth() {
     session_start();

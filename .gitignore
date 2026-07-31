@@ -11,6 +11,10 @@
 *.sln.docstates
 *.env
 
+# Konfigurasi lokal (jangan pernah commit kredensial database/secret)
+.env
+!.env.example
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
