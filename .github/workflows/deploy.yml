@@ -1,0 +1,24 @@
+name: Deploy Website Manga Reader Personal to Infinity Free App via FTP
+
+on:
+  push:
+    branches:
+      - master  # Menjalankan aksi setiap push ke branch master
+
+jobs:
+  web-deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    steps:
+    - name: Get latest code
+      uses: actions/checkout@v6
+
+    - name: Sync files to ProFreeHost
+      uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+      with:
+        server: ${{ secrets.FTP_SERVER }}
+        username: ${{ secrets.FTP_USERNAME }}
+        password: ${{ secrets.FTP_PASSWORD }}
+        local-dir: ./  # Folder asal (semua file di repo)
+        server-dir: ./htdocs/  # Folder tujuan di ProFreeHost (biasanya htdocs)
+        
