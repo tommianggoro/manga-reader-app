@@ -1,7 +1,9 @@
 <?php
 /**
  * Loader .env manual (tanpa library eksternal seperti vlucas/phpdotenv).
- * Membaca file .env di root project dan memasukkan isinya ke $_ENV / getenv().
+ * Membaca file .env di root project dan menyimpannya di array PHP internal
+ * (BUKAN lewat putenv()/getenv()), karena banyak hosting shared (mis. InfinityFree)
+ * mem-blokir atau tidak mempropagasi putenv()/getenv() dengan benar antar-request.
  *
  * Format yang didukung:
  *   KEY=value
@@ -9,17 +11,17 @@
  *   KEY='value juga bisa single quote'
  *   # ini komentar, diabaikan
  *   (baris kosong diabaikan)
- *
- * Variabel yang SUDAH di-set sebelumnya (misal lewat environment asli server/
- * Docker/panel hosting) tidak akan ditimpa oleh isi .env — .env hanya dipakai
- * sebagai fallback untuk pengembangan lokal / hosting yang tidak punya
- * mekanisme environment variable sendiri.
  */
 
 function loadEnv(string $path): void {
+    global $__ENV_STORE;
+
+    if (!isset($__ENV_STORE) || !is_array($__ENV_STORE)) {
+        $__ENV_STORE = [];
+    }
+
     if (!is_readable($path)) {
-        // Tidak fatal: mungkin environment variable sudah di-set lewat cara lain
-        // (misal di panel hosting), jadi kita biarkan lanjut tanpa .env file.
+        // Tidak fatal: config.php akan jatuh ke nilai default di env().
         return;
     }
 
@@ -55,21 +57,21 @@ function loadEnv(string $path): void {
             continue;
         }
 
-        // Jangan timpa kalau sudah pernah di-set dari environment asli server
-        if (getenv($key) !== false) {
-            continue;
-        }
-
-        putenv("$key=$value");
-        $_ENV[$key] = $value;
-        $_SERVER[$key] = $value;
+        $__ENV_STORE[$key] = $value;
     }
 }
 
 /**
- * Helper ambil env var dengan default value, biar pemanggilan di config.php ringkas.
+ * Helper ambil env var dengan default value.
+ * Membaca dari array internal hasil loadEnv(), bukan dari getenv()/OS environment,
+ * supaya tetap konsisten di hosting yang membatasi fungsi tersebut (mis. InfinityFree).
  */
 function env(string $key, $default = null) {
-    $value = getenv($key);
-    return $value !== false ? $value : $default;
+    global $__ENV_STORE;
+
+    if (isset($__ENV_STORE) && array_key_exists($key, $__ENV_STORE)) {
+        return $__ENV_STORE[$key];
+    }
+
+    return $default;
 }
