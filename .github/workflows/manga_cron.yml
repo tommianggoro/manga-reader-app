@@ -20,7 +20,7 @@ jobs:
 
       - name: Install Playwright
         run: |
-          pip install playwright
+          pip install playwright==1.48.0
           playwright install --with-deps chromium
 
       - name: Run Web Cron Sync Request (bypass JS challenge InfinityFree via headless browser)
