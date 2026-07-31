@@ -16,17 +16,16 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run Web Cron Sync Request
+        env:
+          CRON_SECRET_KEY: ${{ secrets.CRON_SECRET_KEY }}
+          SITE_URL: ${{ secrets.SITE_URL }}
         run: |
-          # Ganti YOUR_DOMAIN_HERE dengan domain/URL situs aplikasi kamu
-          # Contoh: https://mangareader.infinityfreeapp.com atau https://yoursite.com
-          SITE_URL="YOUR_DOMAIN_HERE/cron_update.php?key=manga_reader_secret_key_123"
-          
-          echo "Memanggil endpoint cron sync di: $SITE_URL"
-          
+          echo "Memanggil endpoint cron sync di: $SITE_URL/cron_update.php"
+
           # Mengirim HTTP request dengan User-Agent browser asli untuk menghindari pemblokiran sederhana
           RESPONSE=$(curl -s -L -w "\nHTTP_STATUS:%{http_code}" \
             -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36" \
-            "$SITE_URL")
-          
+            "$SITE_URL/cron_update.php?key=$CRON_SECRET_KEY")
+
           echo "Hasil Tanggapan Server:"
           echo "$RESPONSE"
