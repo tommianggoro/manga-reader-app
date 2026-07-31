@@ -61,7 +61,7 @@ function shngmSaveManga($pdo, $manga) {
         ":title" => $manga["title"],
         ":alt_title" => $manga["alternative_title"] ?? "",
         ":description" => $manga["description"] ?? "",
-        ":cover" => $manga["cover_portrait_url"] ?? $manga["cover_image_url"],
+        ":cover" => !empty($manga["cover_portrait_url"]) ? $manga["cover_portrait_url"] : ($manga["cover_image_url"] ?? ""),
         ":latest_ch" => $manga["latest_chapter_number"],
         ":author" => $author,
         ":artist" => $artist,
