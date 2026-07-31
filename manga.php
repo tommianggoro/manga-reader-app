@@ -115,6 +115,14 @@ function formatTanggalIndo($datetime) {
         .list-group-item-action:hover { background: var(--bs-tertiary-bg); transform: translateX(3px); }
 
         .no-result { color: #7c8194; }
+        /* Highlight chapter baru hasil sync background */
+        @keyframes newChapterRowFlash {
+            0%   { background-color: rgba(var(--bs-primary-rgb), 0.35); }
+            100% { background-color: var(--bs-secondary-bg); }
+        }
+        .list-group-item.just-added {
+            animation: newChapterRowFlash 2s ease-out;
+        }
     </style>
 </head>
 <body>
@@ -156,7 +164,7 @@ function formatTanggalIndo($datetime) {
                 <?php if (!empty($manga['artist'])): ?><span class="badge rounded-pill text-bg-secondary"><i class="bi bi-palette me-1"></i><?= htmlspecialchars($manga['artist']) ?></span><?php endif; ?>
                 <?php if (!empty($manga['release_year'])): ?><span class="badge rounded-pill text-bg-secondary"><i class="bi bi-calendar-event me-1"></i><?= htmlspecialchars($manga['release_year']) ?></span><?php endif; ?>
                 <?php if (!empty($manga['rating'])): ?><span class="badge rounded-pill text-bg-warning text-dark"><i class="bi bi-star-fill me-1"></i><?= htmlspecialchars($manga['rating']) ?></span><?php endif; ?>
-                <span class="badge rounded-pill text-bg-primary"><i class="bi bi-journals me-1"></i><?= (int) count($chapters) ?> Chapter</span>
+                <span class="badge rounded-pill text-bg-primary" id="totalChapterBadge"><i class="bi bi-journals me-1"></i><span id="totalChapterCount"><?= (int) count($chapters) ?></span> Chapter</span>
             </div>
             <?php if (!empty($manga['genres'])): ?>
                 <div class="small text-secondary"><i class="bi bi-tags me-1"></i><?= htmlspecialchars($manga['genres']) ?></div>
@@ -242,6 +250,18 @@ function formatTanggalIndo($datetime) {
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
                 <button type="button" class="btn btn-danger" id="confirmDeleteBtn"><i class="bi bi-trash3 me-1"></i> Hapus Permanen</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Notifikasi Chapter Baru (hasil sync background/cron) -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
+    <div id="newChapterToast" class="toast align-items-center border-0 text-bg-primary" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body fw-semibold" id="newChapterToastText">
+                <i class="bi bi-stars me-1"></i> Ada chapter baru!
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
         </div>
     </div>
 </div>
@@ -333,6 +353,99 @@ function formatTanggalIndo($datetime) {
             confirmDeleteBtn.innerHTML = '<i class="bi bi-trash3 me-1"></i> Hapus Permanen';
         }
     });
+
+    // ==== Auto-Update Background (Polling, Tanpa Reload) ====
+    // Sync data dilakukan oleh cron (GitHub Actions / server cron) lewat cron_update.php.
+    // Skrip ini hanya memeriksa server secara berkala untuk manga yang sedang dibuka,
+    // dan menyisipkan chapter baru ke daftar tanpa perlu reload halaman.
+
+    const POLL_INTERVAL_MS = 45000; // cek server tiap 45 detik
+    const currentMangaId = <?= json_encode($mangaId) ?>;
+    let knownLatestChapter = <?= (int) ($chapters[0]['chapter_number'] ?? 0) ?>;
+
+    function showNewChapterToast(count) {
+        const toastEl = document.getElementById('newChapterToast');
+        const textEl = document.getElementById('newChapterToastText');
+        textEl.innerHTML = `<i class="bi bi-stars me-1"></i> ` +
+            (count === 1 ? '1 chapter baru tersedia!' : `${count} chapter baru tersedia!`);
+        bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 6000 }).show();
+    }
+
+    function prependNewChapters(newChapters) {
+        const list = document.getElementById("chapterList");
+        // API mengembalikan urutan ASC (lama -> baru); kita masukkan dari yang
+        // paling baru dulu ke posisi paling atas, supaya urutan akhir tetap DESC.
+        const ordered = [...newChapters].reverse();
+
+        ordered.forEach(ch => {
+            const a = document.createElement("a");
+            a.className = "list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2.5 px-3 just-added";
+            a.href = "reader.php?chapter_id=" + encodeURIComponent(ch.chapter_id);
+            a.dataset.search = (ch.chapter_number + " " + (ch.chapter_title || "")).toLowerCase();
+
+            const titlePart = ch.chapter_title
+                ? ` — <span class="text-secondary font-normal">${ch.chapter_title.replace(/</g, "&lt;")}</span>`
+                : "";
+
+            a.innerHTML = `
+                <span class="fw-medium">Chapter ${ch.chapter_number}${titlePart}</span>
+                <span class="d-flex align-items-center gap-2 flex-shrink-0">
+                    <small class="text-secondary">${ch.date_label}</small>
+                    <span class="badge text-bg-primary">Baru</span>
+                </span>
+            `;
+
+            list.prepend(a);
+            items.unshift(a); // supaya ikut ter-cover oleh filter pencarian yang sudah ada
+
+            setTimeout(() => a.classList.remove("just-added"), 2500);
+        });
+    }
+
+    async function pollForMangaUpdates() {
+        try {
+            const res = await fetch(`check_manga_updates.php?manga_id=${encodeURIComponent(currentMangaId)}&since=${knownLatestChapter}`, { cache: 'no-store' });
+            const data = await res.json();
+            if (!data.success) return;
+
+            if (data.new_chapters && data.new_chapters.length > 0) {
+                prependNewChapters(data.new_chapters);
+                knownLatestChapter = data.latest_chapter_number;
+
+                const countEl = document.getElementById("totalChapterCount");
+                if (countEl) countEl.textContent = data.total_chapters;
+
+                showNewChapterToast(data.new_chapters.length);
+            }
+        } catch (err) {
+            console.warn('Gagal memeriksa update background:', err.message);
+        }
+    }
+
+    let mangaPollTimer = setInterval(pollForMangaUpdates, POLL_INTERVAL_MS);
+
+    // Hemat resource: berhenti polling saat tab tidak aktif, cek langsung saat kembali aktif
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            clearInterval(mangaPollTimer);
+            mangaPollTimer = null;
+        } else {
+            pollForMangaUpdates();
+            if (!mangaPollTimer) mangaPollTimer = setInterval(pollForMangaUpdates, POLL_INTERVAL_MS);
+        }
+    });
+
+    // Multi-tab: kalau user sync manual manga ini lewat crawl.php di tab lain,
+    // halaman ini langsung ikut ter-update juga tanpa nunggu polling interval.
+    if (window.BroadcastChannel) {
+        const updateChannel = new BroadcastChannel('manga_reader_updates');
+        updateChannel.addEventListener('message', (event) => {
+            const msg = event.data;
+            if (msg && msg.type === 'manga_updated' && msg.manga_id === currentMangaId) {
+                pollForMangaUpdates();
+            }
+        });
+    }
 </script>
 </body>
 </html>

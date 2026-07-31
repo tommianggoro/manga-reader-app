@@ -213,6 +213,21 @@ $importError = $_GET["import_error"] ?? null;
             background: var(--bs-tertiary-bg); color: var(--bs-primary);
             display: flex; align-items: center; justify-content: center; font-size: 2.2rem;
         }
+        /* Highlight kartu saat ada chapter baru dari sync background */
+        @keyframes newChapterPulse {
+            0%   { box-shadow: 0 0 0 0 rgba(var(--bs-primary-rgb), 0.55); }
+            70%  { box-shadow: 0 0 0 10px rgba(var(--bs-primary-rgb), 0); }
+            100% { box-shadow: 0 0 0 0 rgba(var(--bs-primary-rgb), 0); }
+        }
+        .just-updated {
+            animation: newChapterPulse 1.2s ease-out 2;
+            border-color: var(--bs-primary) !important;
+        }
+        .chapter-badge.just-flashed {
+            background-color: var(--bs-primary) !important;
+            color: #10131a !important;
+            transition: background-color 0.3s ease;
+        }
     </style>
 </head>
 <body>
@@ -252,7 +267,7 @@ $importError = $_GET["import_error"] ?? null;
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div class="d-flex flex-wrap gap-2">
             <div class="stats-badge"><i class="bi bi-collection-fill text-primary"></i> <span id="statMangaCount"><?= $totalManga ?> Manga</span></div>
-            <div class="stats-badge"><i class="bi bi-journals text-info"></i> <span><?= $totalChapters ?> Chapter</span></div>
+            <div class="stats-badge"><i class="bi bi-journals text-info"></i> <span id="statChapterCount"><?= $totalChapters ?> Chapter</span></div>
             <div class="stats-badge"><i class="bi bi-star-fill text-warning"></i> <span id="statFavCount"><?= $totalFavorites ?> Favorit</span></div>
             <?php if ($recentlyUpdated > 0): ?>
                 <div class="stats-badge"><i class="bi bi-fire text-danger"></i> <span>🔥 <?= $recentlyUpdated ?> Update Minggu Ini</span></div>
@@ -330,7 +345,7 @@ $importError = $_GET["import_error"] ?? null;
                         <div class="card-body p-2 d-flex flex-column justify-content-between">
                             <div class="card-title text-truncate mb-1" title="<?= htmlspecialchars($m['title']) ?>"><?= htmlspecialchars($m['title']) ?></div>
                             <div class="d-flex align-items-center justify-content-between">
-                                <span class="badge text-bg-secondary fw-normal">Ch. <?= (int) $m['latest_chapter_number'] ?></span>
+                                <span class="badge text-bg-secondary fw-normal chapter-badge" data-chapter="<?= (int) $m['latest_chapter_number'] ?>">Ch. <?= (int) $m['latest_chapter_number'] ?></span>    
                                 <?php if (!empty($m['rating'])): ?>
                                     <small class="text-warning fw-semibold"><i class="bi bi-star-fill"></i> <?= htmlspecialchars($m['rating']) ?></small>
                                 <?php endif; ?>
@@ -369,7 +384,7 @@ $importError = $_GET["import_error"] ?? null;
                                 <div class="small text-secondary text-truncate mb-1"><?= htmlspecialchars($m['alternative_title']) ?></div>
                             <?php endif; ?>
                             <div class="d-flex flex-wrap align-items-center gap-2 small text-secondary">
-                                <span class="badge text-bg-primary">Ch. <?= (int) $m['latest_chapter_number'] ?> Tersimpan</span>
+                                <span class="badge text-bg-primary chapter-badge" data-chapter="<?= (int) $m['latest_chapter_number'] ?>">Ch. <?= (int) $m['latest_chapter_number'] ?> Tersimpan</span>
                                 <?php if (!empty($m['author'])): ?>
                                     <span><i class="bi bi-person me-1"></i><?= htmlspecialchars($m['author']) ?></span>
                                 <?php endif; ?>
@@ -472,6 +487,18 @@ $importError = $_GET["import_error"] ?? null;
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
                 <button type="button" class="btn btn-danger" id="executeBatchDeleteBtn"><i class="bi bi-trash3 me-1"></i> Ya, Hapus Sekarang</button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Notifikasi Chapter Baru (hasil sync background/cron) -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
+    <div id="newChapterToast" class="toast align-items-center border-0 text-bg-primary" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body fw-semibold" id="newChapterToastText">
+                <i class="bi bi-stars me-1"></i> Ada chapter baru!
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
         </div>
     </div>
 </div>
@@ -743,6 +770,102 @@ $importError = $_GET["import_error"] ?? null;
             executeBatchDeleteBtn.innerHTML = '<i class="bi bi-trash3 me-1"></i> Ya, Hapus Sekarang';
         }
     });
+
+    // ==== Auto-Update Background (Polling, Tanpa Reload) ====
+    // Sinkronisasi data manga/chapter dilakukan oleh cron (GitHub Actions / server cron)
+    // lewat cron_update.php. Skrip ini hanya memeriksa server secara berkala dan
+    // memperbarui tampilan begitu ada perubahan, supaya user tidak perlu reload manual.
+
+    const POLL_INTERVAL_MS = 45000; // cek server tiap 45 detik
+
+    // Snapshot chapter terakhir yang diketahui browser, diisi dari render awal PHP
+    const mangaChapterSnapshot = {};
+    document.querySelectorAll('[data-manga-id] .chapter-badge').forEach(badge => {
+        const col = badge.closest('[data-manga-id]');
+        if (col) mangaChapterSnapshot[col.dataset.mangaId] = parseInt(badge.dataset.chapter || '0', 10);
+    });
+
+    function applyChapterUpdate(mangaId, newChapterNumber) {
+        document.querySelectorAll(`[data-manga-id="${CSS.escape(mangaId)}"] .chapter-badge`).forEach(badge => {
+            badge.textContent = badge.textContent.replace(/\d+/, newChapterNumber);
+            badge.dataset.chapter = newChapterNumber;
+            badge.classList.add('just-flashed');
+            setTimeout(() => badge.classList.remove('just-flashed'), 1500);
+        });
+
+        document.querySelectorAll(`.manga-card, .manga-list-item`).forEach(card => {
+            const wrapper = card.closest('[data-manga-id]');
+            if (wrapper && wrapper.dataset.mangaId === mangaId) {
+                card.classList.add('just-updated');
+                setTimeout(() => card.classList.remove('just-updated'), 2500);
+            }
+        });
+    }
+
+    function showNewChapterToast(count) {
+        const toastEl = document.getElementById('newChapterToast');
+        const textEl = document.getElementById('newChapterToastText');
+        textEl.innerHTML = `<i class="bi bi-stars me-1"></i> ` +
+            (count === 1 ? '1 manga punya chapter baru!' : `${count} manga punya chapter baru!`);
+        bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 6000 }).show();
+    }
+
+    async function pollForUpdates() {
+        try {
+            const res = await fetch('check_updates.php', { cache: 'no-store' });
+            const data = await res.json();
+            if (!data.success) return;
+
+            document.getElementById('statMangaCount').textContent = `${data.stats.total_manga} Manga`;
+            document.getElementById('statFavCount').textContent = `${data.stats.total_favorites} Favorit`;
+            const chEl = document.getElementById('statChapterCount');
+            if (chEl) chEl.textContent = `${data.stats.total_chapters} Chapter`;
+
+            let updatedCount = 0;
+            for (const [mangaId, latestChapter] of Object.entries(data.mangas)) {
+                const prev = mangaChapterSnapshot[mangaId];
+                if (prev === undefined) continue; // manga baru ditambah manual, bukan dari cron
+                if (latestChapter > prev) {
+                    mangaChapterSnapshot[mangaId] = latestChapter;
+                    applyChapterUpdate(mangaId, latestChapter);
+                    updatedCount++;
+                }
+            }
+
+            if (updatedCount > 0) showNewChapterToast(updatedCount);
+        } catch (err) {
+            console.warn('Gagal memeriksa update background:', err.message);
+        }
+    }
+
+    let pollTimer = setInterval(pollForUpdates, POLL_INTERVAL_MS);
+
+    // Hemat resource: berhenti polling saat tab tidak aktif, cek langsung saat kembali aktif
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            clearInterval(pollTimer);
+            pollTimer = null;
+        } else {
+            pollForUpdates();
+            if (!pollTimer) pollTimer = setInterval(pollForUpdates, POLL_INTERVAL_MS);
+        }
+    });
+
+    // Multi-tab: kalau user sync manual lewat crawl.php/crawl_all.php di tab lain,
+    // tab index.php ini langsung ikut ter-update juga tanpa nunggu polling interval.
+    if (window.BroadcastChannel) {
+        const updateChannel = new BroadcastChannel('manga_reader_updates');
+        updateChannel.addEventListener('message', (event) => {
+            const msg = event.data;
+            if (msg && msg.type === 'manga_updated' && msg.manga_id && msg.chapter_number) {
+                const prev = mangaChapterSnapshot[msg.manga_id] || 0;
+                if (msg.chapter_number > prev) {
+                    mangaChapterSnapshot[msg.manga_id] = msg.chapter_number;
+                    applyChapterUpdate(msg.manga_id, msg.chapter_number);
+                }
+            }
+        });
+    }
 </script>
 </body>
 </html>
