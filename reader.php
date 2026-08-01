@@ -107,7 +107,10 @@ $allChapters = $stmt->fetchAll();
             z-index: 1060; transition: width 0.1s linear;
         }
 
-        .topbar { background: var(--topbar-bg); border-bottom: 1px solid var(--topbar-border); transition: background 0.3s ease; }
+        .topbar {
+            background: var(--topbar-bg); border-bottom: 1px solid var(--topbar-border);
+            transition: background 0.3s ease, transform 0.25s ease, opacity 0.25s ease;
+        }
         .topbar a { color: var(--bs-body-color); }
 
         .theme-toggle-btn {
@@ -165,6 +168,16 @@ $allChapters = $stmt->fetchAll();
             display: flex; align-items: center; gap: 0.4rem;
             box-shadow: 0 6px 25px rgba(0,0,0,0.5); z-index: 1000;
             border: 1px solid rgba(255,255,255,0.1);
+            transition: transform 0.25s ease, opacity 0.25s ease;
+        }
+
+        /* Immersive Reading Mode: navbar & floating-nav auto-hide saat scroll ke bawah,
+           muncul lagi saat scroll ke atas, dekat ujung chapter, atau gambar di-tap sekali. */
+        body.reader-hide-ui .topbar {
+            transform: translateY(-100%); opacity: 0; pointer-events: none;
+        }
+        body.reader-hide-ui .floating-nav {
+            transform: translateX(-50%) translateY(140%); opacity: 0; pointer-events: none;
         }
         [data-bs-theme="light"] .floating-nav {
             background: rgba(255, 255, 255, 0.9); box-shadow: 0 6px 25px rgba(0,0,0,0.15); border: 1px solid rgba(0,0,0,0.1);
@@ -491,6 +504,57 @@ $allChapters = $stmt->fetchAll();
         window.addEventListener("scroll", updateProgressBar);
         window.addEventListener("resize", updateProgressBar);
         updateProgressBar();
+
+        // Immersive Reading Mode: sembunyikan topbar & floating-nav saat scroll ke bawah,
+        // tampilkan lagi saat scroll ke atas, dekat ujung atas/bawah chapter, atau saat
+        // gambar chapter di-tap sekali (toggle).
+        (function () {
+            let lastScrollY = window.scrollY;
+            const SCROLL_THRESHOLD = 10; // px, biar tidak ke-trigger getaran scroll kecil
+            const EDGE_ZONE = 120; // px, jarak dari atas/bawah yang selalu memaksa UI tampil
+
+            function hideUI() { document.body.classList.add("reader-hide-ui"); }
+            function showUI() { document.body.classList.remove("reader-hide-ui"); }
+
+            window.addEventListener("scroll", () => {
+                const currentScrollY = window.scrollY;
+                const delta = currentScrollY - lastScrollY;
+                const scrollBottom = document.documentElement.scrollHeight - window.innerHeight - currentScrollY;
+
+                if (currentScrollY < EDGE_ZONE || scrollBottom < EDGE_ZONE) {
+                    // Dekat paling atas atau paling bawah chapter -> selalu tampilkan UI
+                    showUI();
+                } else if (Math.abs(delta) > SCROLL_THRESHOLD) {
+                    if (delta > 0) hideUI(); else showUI();
+                }
+
+                lastScrollY = currentScrollY;
+            }, { passive: true });
+
+            // Tap sekali di gambar chapter -> toggle tampil/sembunyi UI.
+            // Dibedakan dari swipe/scroll dengan mengecek jarak pergerakan jari.
+            let touchStartX = 0, touchStartY = 0;
+            const TAP_MOVE_TOLERANCE = 10; // px
+
+            readerContainer.addEventListener("touchstart", (e) => {
+                const t = e.touches[0];
+                touchStartX = t.clientX;
+                touchStartY = t.clientY;
+            }, { passive: true });
+
+            readerContainer.addEventListener("touchend", (e) => {
+                // Jangan toggle kalau tap kena elemen interaktif (tombol reload gambar, dll)
+                if (e.target.closest("button, a, .image-error-card, .single-page-controls")) return;
+
+                const t = e.changedTouches[0];
+                const movedX = Math.abs(t.clientX - touchStartX);
+                const movedY = Math.abs(t.clientY - touchStartY);
+
+                if (movedX < TAP_MOVE_TOLERANCE && movedY < TAP_MOVE_TOLERANCE) {
+                    document.body.classList.toggle("reader-hide-ui");
+                }
+            });
+        })();
 
         // Keyboard Shortcuts
         document.addEventListener("keydown", (e) => {
