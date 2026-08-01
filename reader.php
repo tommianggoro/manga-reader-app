@@ -121,7 +121,7 @@ $allChapters = $stmt->fetchAll();
         }
 
         /* Chapter Images Wrapper & Skeleton */
-        .reader { width: 100%; max-width: 800px; margin: 0 auto; transition: max-width 0.2s ease; }
+        .reader { width: 100%; max-width: 800px; margin: 0 auto; transition: max-width 0.2s ease; cursor: pointer; }
         .page-wrapper {
             position: relative; width: 100%; min-height: 400px; background: var(--shimmer-bg-1);
             margin-bottom: 0; display: flex; align-items: center; justify-content: center;
@@ -172,7 +172,8 @@ $allChapters = $stmt->fetchAll();
         }
 
         /* Immersive Reading Mode: navbar & floating-nav auto-hide saat scroll ke bawah,
-           muncul lagi saat scroll ke atas, dekat ujung chapter, atau gambar di-tap sekali. */
+           muncul lagi saat scroll ke atas, dekat ujung chapter, atau gambar di-tap/klik
+           sekali (toggle manual, berfungsi kapan pun terlepas dari arah scroll). */
         body.reader-hide-ui .topbar {
             transform: translateY(-100%); opacity: 0; pointer-events: none;
         }
@@ -211,6 +212,7 @@ $allChapters = $stmt->fetchAll();
             max-width: 700px; margin: 2.5rem auto 1rem;
             background: var(--topbar-bg); border: 1px solid var(--topbar-border);
             border-radius: 16px; padding: 2rem; text-align: center; width: 100%;
+            cursor: default;
         }
 
         /* Toast Hint */
@@ -505,9 +507,16 @@ $allChapters = $stmt->fetchAll();
         window.addEventListener("resize", updateProgressBar);
         updateProgressBar();
 
-        // Immersive Reading Mode: sembunyikan topbar & floating-nav saat scroll ke bawah,
-        // tampilkan lagi saat scroll ke atas, dekat ujung atas/bawah chapter, atau saat
-        // gambar chapter di-tap sekali (toggle).
+        // Immersive Reading Mode
+        // -----------------------
+        // Pola A (scroll-direction): scroll ke bawah -> hide UI, scroll ke atas -> show UI,
+        //   dan selalu tampil saat dekat ujung atas/bawah chapter. Ini perilaku utama,
+        //   cocok untuk reading kontinu di mode Webtoon.
+        // Pola B (tap/klik toggle instan): tap atau klik satu kali di area gambar chapter
+        //   akan toggle tampil/sembunyi UI secara langsung, kapan pun, terlepas dari arah
+        //   scroll -- ini override manual, dipakai baik di mobile (touch) maupun desktop
+        //   (mouse click), supaya user bisa munculkan/hilangkan navigasi kapan saja tanpa
+        //   perlu scroll dulu. Tidak ada delay/idle-timer; responsif instan.
         (function () {
             let lastScrollY = window.scrollY;
             const SCROLL_THRESHOLD = 10; // px, biar tidak ke-trigger getaran scroll kecil
@@ -515,6 +524,7 @@ $allChapters = $stmt->fetchAll();
 
             function hideUI() { document.body.classList.add("reader-hide-ui"); }
             function showUI() { document.body.classList.remove("reader-hide-ui"); }
+            function toggleUI() { document.body.classList.toggle("reader-hide-ui"); }
 
             window.addEventListener("scroll", () => {
                 const currentScrollY = window.scrollY;
@@ -531,9 +541,10 @@ $allChapters = $stmt->fetchAll();
                 lastScrollY = currentScrollY;
             }, { passive: true });
 
-            // Tap sekali di gambar chapter -> toggle tampil/sembunyi UI.
+            // Tap sekali di gambar chapter (mobile) -> toggle tampil/sembunyi UI.
             // Dibedakan dari swipe/scroll dengan mengecek jarak pergerakan jari.
             let touchStartX = 0, touchStartY = 0;
+            let wasTouchInteraction = false;
             const TAP_MOVE_TOLERANCE = 10; // px
 
             readerContainer.addEventListener("touchstart", (e) => {
@@ -551,8 +562,20 @@ $allChapters = $stmt->fetchAll();
                 const movedY = Math.abs(t.clientY - touchStartY);
 
                 if (movedX < TAP_MOVE_TOLERANCE && movedY < TAP_MOVE_TOLERANCE) {
-                    document.body.classList.toggle("reader-hide-ui");
+                    wasTouchInteraction = true;
+                    toggleUI();
+                    // reset flag di frame berikutnya, supaya event "click" bawaan browser
+                    // yang biasanya menyusul setelah touchend tidak ikut men-toggle lagi (double toggle)
+                    setTimeout(() => { wasTouchInteraction = false; }, 400);
                 }
+            });
+
+            // Klik untuk desktop/mouse -> toggle tampil/sembunyi UI.
+            // Di-skip kalau baru saja ditangani oleh touchend (hindari double-toggle di device touch).
+            readerContainer.addEventListener("click", (e) => {
+                if (wasTouchInteraction) return;
+                if (e.target.closest("button, a, .image-error-card, .single-page-controls")) return;
+                toggleUI();
             });
         })();
 
