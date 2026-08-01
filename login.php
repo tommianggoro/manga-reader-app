@@ -40,6 +40,18 @@ if ($lockedUntil) {
 <head>
     <meta charset="UTF-8">
     <title>Login - Manga Reader</title>
+    <link rel="icon" href="favicon.ico" sizes="any">
+    
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#10131a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Manga Reader">
+    <link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+    
+
     <style>
         body { font-family: sans-serif; background: #1a1a1a; color: #eee; display: flex; height: 100vh; align-items: center; justify-content: center; }
         form { background: #2a2a2a; padding: 2rem; border-radius: 8px; }
@@ -56,5 +68,15 @@ if ($lockedUntil) {
         <input type="password" name="password" placeholder="Password" required autofocus <?= $lockedUntil ? 'disabled' : '' ?>>
         <button type="submit" <?= $lockedUntil ? 'disabled' : '' ?>>Masuk</button>
     </form>
+
+    <script>
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("sw.js").catch((err) => {
+                    console.warn("Service worker gagal register:", err);
+                });
+            });
+        }
+    </script>
 </body>
 </html>

@@ -40,7 +40,17 @@ function formatTanggalIndo($datetime) {
     <link href="https://fonts.googleapis.com/css2?family=Bitter:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23f2a541'/%3E%3Ctext x='50' y='68' font-size='55' text-anchor='middle'%3E%F0%9F%93%96%3C/text%3E%3C/svg%3E">
+    <link rel="icon" href="favicon.ico" sizes="any">
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#10131a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Manga Reader">
+    <link rel="apple-touch-icon" href="assets/icons/icon-192.png">
+    
+
     <style>
         :root, [data-bs-theme="dark"] {
             --bs-body-bg: #10131a;
@@ -444,6 +454,14 @@ function formatTanggalIndo($datetime) {
             if (msg && msg.type === 'manga_updated' && msg.manga_id === currentMangaId) {
                 pollForMangaUpdates();
             }
+        });
+    }
+
+    if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+            navigator.serviceWorker.register("sw.js").catch((err) => {
+            console.warn("Service worker gagal register:", err);
+            });
         });
     }
 </script>
