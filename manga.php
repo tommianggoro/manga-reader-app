@@ -456,14 +456,6 @@ function formatTanggalIndo($datetime) {
             }
         });
     }
-
-    if ("serviceWorker" in navigator) {
-        window.addEventListener("load", () => {
-            navigator.serviceWorker.register("sw.php").catch((err) => {
-            console.warn("Service worker gagal register:", err);
-            });
-        });
-    }
 </script>
 </body>
 </html>

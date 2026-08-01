@@ -68,15 +68,5 @@ if ($lockedUntil) {
         <input type="password" name="password" placeholder="Password" required autofocus <?= $lockedUntil ? 'disabled' : '' ?>>
         <button type="submit" <?= $lockedUntil ? 'disabled' : '' ?>>Masuk</button>
     </form>
-
-    <script>
-        if ("serviceWorker" in navigator) {
-            window.addEventListener("load", () => {
-                navigator.serviceWorker.register("sw.php").catch((err) => {
-                    console.warn("Service worker gagal register:", err);
-                });
-            });
-        }
-    </script>
 </body>
 </html>
