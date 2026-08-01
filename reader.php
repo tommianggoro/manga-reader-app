@@ -614,6 +614,50 @@ $allChapters = $stmt->fetchAll();
                 }, 1000);
             });
         }
+
+        // ==========================================
+        // LOGIKA SIMPAN & PULIHKAN POSISI BACA (SCROLL)
+        // ==========================================
+        const currentChapterId = <?= json_encode($chapter['chapter_id']) ?>;
+        const storageKey = `read_pos_${currentChapterId}`;
+
+        // 1. Pulihkan Posisi Baca Terakhir Saat Halaman Selesai Dimuat
+        window.addEventListener("load", () => {
+            const layout = localStorage.getItem("manga_reader_layout") || "webtoon";
+            
+            // Fitur ini berfokus pada mode Webtoon (Scroll Vertikal)
+            if (layout === "webtoon") {
+                const savedPosition = localStorage.getItem(storageKey);
+                if (savedPosition) {
+                    const targetY = parseInt(savedPosition, 10);
+                    
+                    // Menggunakan setTimeout untuk memastikan gambar/DOM sudah ter-render sempurna
+                    setTimeout(() => {
+                        window.scrollTo({
+                            top: targetY,
+                            behavior: "smooth" // Gunakan 'auto' jika ingin lompat tanpa animasi
+                        });
+                    }, 300);
+                }
+            }
+        });
+
+        // 2. Simpan Posisi Scroll Secara Real-Time (Debounced untuk Kinerja Ringan)
+        let scrollSaveTimeout;
+        window.addEventListener("scroll", () => {
+            const layout = localStorage.getItem("manga_reader_layout") || "webtoon";
+            if (layout !== "webtoon") return;
+
+            clearTimeout(scrollSaveTimeout);
+            scrollSaveTimeout = setTimeout(() => {
+                // Jangan simpan jika pengguna berada di paling atas halaman
+                if (window.scrollY > 100) {
+                    localStorage.setItem(storageKey, Math.round(window.scrollY));
+                } else {
+                    localStorage.removeItem(storageKey);
+                }
+            }, 200); // Menunggu 200ms setelah user berhenti scroll
+        });
     </script>
 </body>
 </html>
