@@ -1,0 +1,37 @@
+{
+  "name": "Manga Reader",
+  "short_name": "MangaReader",
+  "description": "Koleksi manga pribadi dengan auto-sync chapter terbaru",
+  "start_url": "https://mangareader.infinityfreeapp.com/index.php",
+  "scope": "https://mangareader.infinityfreeapp.com/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#23163e",
+  "theme_color": "#23163e",
+  "icons": [
+    {
+      "src": "https://tommianggoro.github.io/manga-reader-app/assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://tommianggoro.github.io/manga-reader-app/assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "https://tommianggoro.github.io/manga-reader-app/assets/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "https://tommianggoro.github.io/manga-reader-app/assets/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
