@@ -43,7 +43,7 @@ if ($lockedUntil) {
     <link rel="icon" href="favicon.ico" sizes="any">
     
 
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="manifest.php">
     <meta name="theme-color" content="#10131a">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -72,7 +72,7 @@ if ($lockedUntil) {
     <script>
         if ("serviceWorker" in navigator) {
             window.addEventListener("load", () => {
-                navigator.serviceWorker.register("sw.js").catch((err) => {
+                navigator.serviceWorker.register("sw.php").catch((err) => {
                     console.warn("Service worker gagal register:", err);
                 });
             });

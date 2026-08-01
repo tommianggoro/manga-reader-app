@@ -42,7 +42,7 @@ function formatTanggalIndo($datetime) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="icon" href="favicon.ico" sizes="any">
     
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="manifest.php">
     <meta name="theme-color" content="#10131a">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -459,7 +459,7 @@ function formatTanggalIndo($datetime) {
 
     if ("serviceWorker" in navigator) {
         window.addEventListener("load", () => {
-            navigator.serviceWorker.register("sw.js").catch((err) => {
+            navigator.serviceWorker.register("sw.php").catch((err) => {
             console.warn("Service worker gagal register:", err);
             });
         });
