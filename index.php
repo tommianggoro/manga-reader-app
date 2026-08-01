@@ -46,7 +46,7 @@ $importError = $_GET["import_error"] ?? null;
     <link rel="icon" href="favicon.ico" sizes="any">
 
 
-    <link rel="manifest" href="manifest.php">
+    <link rel="manifest" href="https://tommianggoro.github.io/manga-reader-app/manifest.json">
     <meta name="theme-color" content="#10131a">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
