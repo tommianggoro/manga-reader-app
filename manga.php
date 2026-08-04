@@ -312,7 +312,7 @@ function formatTanggalIndo($datetime) {
         let visibleCount = 0;
         items.forEach(item => {
             const match = item.dataset.search.includes(q);
-            item.style.display = match ? "" : "none";
+            item.classList.toggle("d-none", !match);
             if (match) visibleCount++;
         });
         noResult.style.display = visibleCount === 0 ? "block" : "none";
