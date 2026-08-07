@@ -12,7 +12,7 @@ requireAuth();
 header("Content-Type: application/json; charset=utf-8");
 
 $mangaId = $_GET["manga_id"] ?? null;
-$since = isset($_GET["since"]) ? (int) $_GET["since"] : 0;
+$since = isset($_GET["since"]) ? (float) $_GET["since"] : 0;
 
 if (!$mangaId) {
     echo json_encode(["success" => false, "error" => "manga_id wajib diisi"]);
@@ -46,7 +46,7 @@ if ($since > 0) {
     foreach ($stmt->fetchAll() as $ch) {
         $newChapters[] = [
             "chapter_id" => $ch["chapter_id"],
-            "chapter_number" => (int) $ch["chapter_number"],
+            "chapter_number" => (float) $ch["chapter_number"],
             "chapter_title" => $ch["chapter_title"] ?? "",
             "date_label" => formatTanggalIndoApi($ch["updated_at"] ?? $ch["created_at"]),
         ];
@@ -55,7 +55,7 @@ if ($since > 0) {
 
 echo json_encode([
     "success" => true,
-    "latest_chapter_number" => (int) $manga["latest_chapter_number"],
+    "latest_chapter_number" => (float) $manga["latest_chapter_number"],
     "total_chapters" => $totalChapters,
     "new_chapters" => $newChapters,
 ]);

@@ -355,7 +355,7 @@ $importError = $_GET["import_error"] ?? null;
                         <div class="card-body p-2 d-flex flex-column justify-content-between">
                             <div class="card-title text-truncate mb-1" title="<?= htmlspecialchars($m['title']) ?>"><?= htmlspecialchars($m['title']) ?></div>
                             <div class="d-flex align-items-center justify-content-between">
-                                <span class="badge text-bg-secondary fw-normal chapter-badge" data-chapter="<?= (int) $m['latest_chapter_number'] ?>">Ch. <?= (int) $m['latest_chapter_number'] ?></span>    
+                                <span class="badge text-bg-secondary fw-normal chapter-badge" data-chapter="<?= htmlspecialchars(formatChapterNumber($m['latest_chapter_number'])) ?>">Ch. <?= htmlspecialchars(formatChapterNumber($m['latest_chapter_number'])) ?></span>
                                 <?php if (!empty($m['rating'])): ?>
                                     <small class="text-warning fw-semibold"><i class="bi bi-star-fill"></i> <?= htmlspecialchars($m['rating']) ?></small>
                                 <?php endif; ?>
@@ -394,7 +394,7 @@ $importError = $_GET["import_error"] ?? null;
                                 <div class="small text-secondary text-truncate mb-1"><?= htmlspecialchars($m['alternative_title']) ?></div>
                             <?php endif; ?>
                             <div class="d-flex flex-wrap align-items-center gap-2 small text-secondary">
-                                <span class="badge text-bg-primary chapter-badge" data-chapter="<?= (int) $m['latest_chapter_number'] ?>">Ch. <?= (int) $m['latest_chapter_number'] ?> Tersimpan</span>
+                                <span class="badge text-bg-primary chapter-badge" data-chapter="<?= htmlspecialchars(formatChapterNumber($m['latest_chapter_number'])) ?>">Ch. <?= htmlspecialchars(formatChapterNumber($m['latest_chapter_number'])) ?> Tersimpan</span>
                                 <?php if (!empty($m['author'])): ?>
                                     <span><i class="bi bi-person me-1"></i><?= htmlspecialchars($m['author']) ?></span>
                                 <?php endif; ?>
@@ -792,12 +792,12 @@ $importError = $_GET["import_error"] ?? null;
     const mangaChapterSnapshot = {};
     document.querySelectorAll('[data-manga-id] .chapter-badge').forEach(badge => {
         const col = badge.closest('[data-manga-id]');
-        if (col) mangaChapterSnapshot[col.dataset.mangaId] = parseInt(badge.dataset.chapter || '0', 10);
+        if (col) mangaChapterSnapshot[col.dataset.mangaId] = parseFloat(badge.dataset.chapter || '0');
     });
 
     function applyChapterUpdate(mangaId, newChapterNumber) {
         document.querySelectorAll(`[data-manga-id="${CSS.escape(mangaId)}"] .chapter-badge`).forEach(badge => {
-            badge.textContent = badge.textContent.replace(/\d+/, newChapterNumber);
+            badge.textContent = badge.textContent.replace(/\d+(\.\d+)?/, newChapterNumber);
             badge.dataset.chapter = newChapterNumber;
             badge.classList.add('just-flashed');
             setTimeout(() => badge.classList.remove('just-flashed'), 1500);

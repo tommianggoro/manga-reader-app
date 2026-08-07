@@ -62,7 +62,7 @@ function shngmSaveManga($pdo, $manga) {
         ":alt_title" => $manga["alternative_title"] ?? "",
         ":description" => $manga["description"] ?? "",
         ":cover" => !empty($manga["cover_portrait_url"]) ? $manga["cover_portrait_url"] : ($manga["cover_image_url"] ?? ""),
-        ":latest_ch" => $manga["latest_chapter_number"],
+        ":latest_ch" => (float) $manga["latest_chapter_number"],
         ":author" => $author,
         ":artist" => $artist,
         ":genres" => $genres,
@@ -128,7 +128,7 @@ function shngmSyncChapterStep($pdo, $mangaId, $chapterId) {
         return [
             "skipped" => true,
             "repaired" => false,
-            "chapter_number" => $existing["chapter_number"],
+            "chapter_number" => (float) $existing["chapter_number"],
             "prev_chapter_id" => $existing["prev_chapter_id"],
         ];
     }
@@ -141,7 +141,7 @@ function shngmSyncChapterStep($pdo, $mangaId, $chapterId) {
         return [
             "skipped" => true,
             "repaired" => true,
-            "chapter_number" => $existing["chapter_number"],
+            "chapter_number" => (float) $existing["chapter_number"],
             "prev_chapter_id" => $prevId,
         ];
     }
@@ -152,7 +152,7 @@ function shngmSyncChapterStep($pdo, $mangaId, $chapterId) {
     return [
         "skipped" => false,
         "repaired" => false,
-        "chapter_number" => $chapterDetail["chapter_number"],
+        "chapter_number" => (float) $chapterDetail["chapter_number"],
         "prev_chapter_id" => $chapterDetail["prev_chapter_id"] ?? null,
     ];
 }

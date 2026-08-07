@@ -194,7 +194,7 @@ function formatTanggalIndo($datetime) {
         <?php if ($firstChapter): ?>
             <?php if (!empty($manga['last_read_chapter_id'])): ?>
                 <a class="btn btn-primary fw-semibold px-3" href="reader.php?chapter_id=<?= urlencode($manga['last_read_chapter_id']) ?>">
-                    <i class="bi bi-play-fill fs-5 me-1"></i> Lanjutkan Chapter <?= (int) $manga['last_read_chapter_number'] ?>
+                    <i class="bi bi-play-fill fs-5 me-1"></i> Lanjutkan Chapter <?= (float) $manga['last_read_chapter_number'] ?>
                 </a>
                 <a class="btn btn-outline-secondary px-3" href="reader.php?chapter_id=<?= urlencode($firstChapter['chapter_id']) ?>">
                     <i class="bi bi-book me-1"></i> Baca dari Awal
@@ -229,7 +229,7 @@ function formatTanggalIndo($datetime) {
                    href="reader.php?chapter_id=<?= urlencode($ch['chapter_id']) ?>"
                    data-search="<?= htmlspecialchars(mb_strtolower($ch['chapter_number'] . ' ' . ($ch['chapter_title'] ?? ''))) ?>">
                     <span class="fw-medium">
-                        Chapter <?= (int) $ch['chapter_number'] ?>
+                        Chapter <?= (float) $ch['chapter_number'] ?>
                         <?= $ch['chapter_title'] ? " — <span class='text-secondary font-normal'>" . htmlspecialchars($ch['chapter_title']) . "</span>" : "" ?>
                     </span>
                     <span class="d-flex align-items-center gap-2 flex-shrink-0">
@@ -371,7 +371,7 @@ function formatTanggalIndo($datetime) {
 
     const POLL_INTERVAL_MS = 45000; // cek server tiap 45 detik
     const currentMangaId = <?= json_encode($mangaId) ?>;
-    let knownLatestChapter = <?= (int) ($chapters[0]['chapter_number'] ?? 0) ?>;
+    let knownLatestChapter = <?= (float) ($chapters[0]['chapter_number'] ?? 0) ?>;
 
     function showNewChapterToast(count) {
         const toastEl = document.getElementById('newChapterToast');

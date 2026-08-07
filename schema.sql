@@ -31,7 +31,7 @@ CREATE TABLE `chapters` (
   `id` int(11) NOT NULL,
   `chapter_id` varchar(36) NOT NULL,
   `manga_id` varchar(36) NOT NULL,
-  `chapter_number` int(11) NOT NULL,
+  `chapter_number` decimal(8,2) NOT NULL,
   `chapter_title` varchar(255) DEFAULT NULL,
   `base_url` varchar(255) NOT NULL,
   `image_path` varchar(255) NOT NULL,
@@ -79,7 +79,7 @@ CREATE TABLE `mangas` (
   `title` varchar(255) NOT NULL,
   `description` text DEFAULT NULL,
   `cover_image_url` varchar(500) DEFAULT NULL,
-  `latest_chapter_number` int(11) DEFAULT 0,
+  `latest_chapter_number` decimal(8,2) DEFAULT 0,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
   `alternative_title` varchar(255) DEFAULT NULL,
@@ -90,7 +90,7 @@ CREATE TABLE `mangas` (
   `rating` decimal(3,1) DEFAULT NULL,
   `is_favorite` tinyint(1) NOT NULL DEFAULT 0,
   `last_read_chapter_id` varchar(36) DEFAULT NULL,
-  `last_read_chapter_number` int(11) DEFAULT NULL,
+  `last_read_chapter_number` decimal(8,2) DEFAULT NULL,
   `last_read_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 

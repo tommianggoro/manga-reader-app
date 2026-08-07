@@ -55,7 +55,7 @@ $allChapters = $stmt->fetchAll();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title><?= htmlspecialchars($manga['title']) ?> - Chapter <?= (int) $chapter['chapter_number'] ?></title>
+    <title><?= htmlspecialchars($manga['title']) ?> - Chapter <?= htmlspecialchars(formatChapterNumber($chapter['chapter_number'])) ?></title>
     <script>
         (function() {
             const savedTheme = localStorage.getItem('manga_theme') || 'dark';
@@ -235,7 +235,7 @@ $allChapters = $stmt->fetchAll();
             <i class="bi bi-arrow-left"></i> <span class="text-truncate"><?= htmlspecialchars($manga['title']) ?></span>
         </a>
         <div class="d-flex align-items-center gap-2">
-            <span class="badge text-bg-primary">Ch. <?= (int) $chapter['chapter_number'] ?></span>
+            <span class="badge text-bg-primary">Ch. <?= htmlspecialchars(formatChapterNumber($chapter['chapter_number'])) ?></span>
             <button type="button" class="theme-toggle-btn" data-bs-toggle="modal" data-bs-target="#readerSettingsModal" title="Pengaturan Tampilan Pembaca">
                 <i class="bi bi-gear-fill text-warning"></i>
             </button>
@@ -267,12 +267,12 @@ $allChapters = $stmt->fetchAll();
         <!-- End Chapter Card -->
         <div class="end-chapter-card">
             <div class="mb-2 text-warning fs-3"><i class="bi bi-check-circle-fill"></i></div>
-            <h3 class="h5 brand-font mb-2">Anda Telah Selesai Membaca Chapter <?= (int) $chapter['chapter_number'] ?></h3>
+            <h3 class="h5 brand-font mb-2">Anda Telah Selesai Membaca Chapter <?= htmlspecialchars(formatChapterNumber($chapter['chapter_number'])) ?></h3>
             <p class="text-secondary small mb-3">Lanjutkan petualangan ke chapter selanjutnya atau kembali ke daftar chapter.</p>
             <div class="d-flex justify-content-center gap-2 flex-wrap">
                 <?php if ($prevCh): ?>
                     <a href="reader.php?chapter_id=<?= urlencode($prevCh['chapter_id']) ?>" class="btn btn-outline-secondary btn-sm px-3">
-                        <i class="bi bi-chevron-left me-1"></i> Ch. <?= (int) $prevCh['chapter_number'] ?>
+                        <i class="bi bi-chevron-left me-1"></i> Ch. <?= htmlspecialchars(formatChapterNumber($prevCh['chapter_number'])) ?>
                     </a>
                 <?php endif; ?>
                 <a href="manga.php?manga_id=<?= urlencode($manga['manga_id']) ?>" class="btn btn-outline-secondary btn-sm px-3">
@@ -280,7 +280,7 @@ $allChapters = $stmt->fetchAll();
                 </a>
                 <?php if ($nextCh): ?>
                     <a href="reader.php?chapter_id=<?= urlencode($nextCh['chapter_id']) ?>" class="btn btn-primary btn-sm px-3 fw-semibold">
-                        Ch. <?= (int) $nextCh['chapter_number'] ?> Selanjutnya <i class="bi bi-chevron-right ms-1"></i>
+                        Ch. <?= htmlspecialchars(formatChapterNumber($nextCh['chapter_number'])) ?> Selanjutnya <i class="bi bi-chevron-right ms-1"></i>
                     </a>
                 <?php endif; ?>
             </div>

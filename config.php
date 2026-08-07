@@ -93,3 +93,13 @@ function clearLoginAttempts($pdo, $ip) {
     $stmt = $pdo->prepare("DELETE FROM login_attempts WHERE ip_address = :ip");
     $stmt->execute([":ip" => $ip]);
 }
+
+// Format nomor chapter desimal jadi tampilan rapi: 5.00 -> "5", 1.10 -> "1.1"
+function formatChapterNumber($num) {
+    if ($num === null || $num === "") return "";
+    $num = (float) $num;
+    if ($num == (int) $num) {
+        return (string) (int) $num;
+    }
+    return rtrim(rtrim(number_format($num, 2, ".", ""), "0"), ".");
+}

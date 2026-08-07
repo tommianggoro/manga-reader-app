@@ -19,7 +19,7 @@ $recentlyUpdated = (int) $pdo->query("SELECT COUNT(DISTINCT manga_id) FROM chapt
 
 $mangas = [];
 foreach ($rows as $r) {
-    $mangas[$r["manga_id"]] = (int) $r["latest_chapter_number"];
+    $mangas[$r["manga_id"]] = (float) $r["latest_chapter_number"];
 }
 
 echo json_encode([
