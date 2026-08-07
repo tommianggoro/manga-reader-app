@@ -238,6 +238,26 @@ $importError = $_GET["import_error"] ?? null;
             color: #10131a !important;
             transition: background-color 0.3s ease;
         }
+        /* === Mobile touch target & layout fixes === */
+        @media (max-width: 576px) {
+            .app-header { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+            .app-header h1 { font-size: 1.3rem; }
+            .header-actions { width: 100%; }
+            .header-actions .btn { flex: 1; }
+
+            .theme-toggle-btn { width: 44px; height: 44px; }
+            .fav-star { width: 44px; height: 44px; font-size: 1.15rem; }
+            .batch-checkbox { width: 26px; height: 26px; top: 8px; left: 8px; }
+        }
+
+        .batch-action-bar {
+            padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+            max-width: 94vw;
+        }
+        @media (max-width: 480px) {
+            .batch-action-bar { flex-wrap: wrap; justify-content: center; padding: 0.6rem 1rem; }
+            .batch-action-bar .btn { min-height: 40px; }
+        }
     </style>
 </head>
 <body>
@@ -260,12 +280,14 @@ $importError = $_GET["import_error"] ?? null;
     <!-- Header Section -->
     <div class="app-header d-flex align-items-center justify-content-between flex-wrap gap-2">
         <h1 class="brand-font"><i class="bi bi-book-half text-primary"></i> Koleksi Manga Pribadi</h1>
-        <div class="d-flex align-items-center gap-2">
+        <div class="d-flex align-items-center gap-2 header-actions">
             <a href="crawl_all.php" target="_blank" class="btn btn-outline-warning btn-sm fw-semibold" title="Sinkronisasi seluruh manga di koleksi">
-                <i class="bi bi-arrow-repeat me-1"></i> 🔥 Cek Update Semua Manga
+                <i class="bi bi-arrow-repeat me-1"></i>
+                <span class="d-none d-sm-inline">🔥 Cek Update Semua Manga</span>
+                <span class="d-inline d-sm-none">Sync</span>
             </a>
             <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#backupModal" title="Ekspor/Impor JSON Backup">
-                <i class="bi bi-database-gear me-1"></i> Backup
+                <i class="bi bi-database-gear me-1"></i> <span class="d-none d-sm-inline">Backup</span>
             </button>
             <button type="button" class="theme-toggle-btn ms-1" id="themeToggle" title="Ganti Mode Gelap/Terang">
                 <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
@@ -290,11 +312,11 @@ $importError = $_GET["import_error"] ?? null;
 
     <!-- Form Tambah Manga -->
     <form class="row g-2 add-form mb-3" action="crawl.php" method="GET" id="addMangaForm">
-        <div class="col">
+        <div class="col-12 col-sm">
             <input type="text" name="manga_id" id="mangaIdInput" class="form-control form-control-lg fs-6" placeholder="Tempel manga_id di sini (contoh: solo-leveling) untuk menambah/update..." required>
         </div>
-        <div class="col-auto">
-            <button type="submit" class="btn btn-primary btn-lg fs-6"><i class="bi bi-plus-lg"></i> Tambah / Update</button>
+        <div class="col-12 col-sm-auto">
+            <button type="submit" class="btn btn-primary btn-lg fs-6 w-100"><i class="bi bi-plus-lg"></i> Tambah / Update</button>
         </div>
     </form>
 

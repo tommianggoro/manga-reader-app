@@ -222,6 +222,19 @@ $allChapters = $stmt->fetchAll();
             border-radius: 12px; padding: 0.75rem 1rem; font-size: 0.82rem;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3); display: none;
         }
+        .single-page-controls .btn { min-width: 44px; min-height: 44px; }
+
+        .floating-nav {
+            padding-bottom: max(0.4rem, env(safe-area-inset-bottom));
+        }
+        @media (max-width: 400px) {
+            .floating-nav { gap: 0.2rem; padding: 0.35rem 0.6rem; }
+            .floating-nav .btn { width: 42px; height: 42px; font-size: 1rem; }
+            .floating-nav select { max-width: 76px; font-size: 0.75rem; padding: 0.35rem 0.5rem; }
+        }
+        @media (max-width: 576px) {
+            .theme-toggle-btn { width: 40px; height: 40px; }
+        }
     </style>
 </head>
 <body>
@@ -247,9 +260,13 @@ $allChapters = $stmt->fetchAll();
 
     <!-- Single Page Controls Top Bar -->
     <div class="single-page-controls" id="singlePageControlsTop">
-        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" onclick="prevSinglePage()"><i class="bi bi-chevron-left me-1"></i> Halaman Sebelumnya</button>
+        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" onclick="prevSinglePage()">
+            <i class="bi bi-chevron-left"></i><span class="d-none d-sm-inline ms-1">Halaman Sebelumnya</span>
+        </button>
         <span class="fw-semibold small" id="pageIndicatorText">Halaman 1 / <?= count($images) ?></span>
-        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" onclick="nextSinglePage()">Halaman Selanjutnya <i class="bi bi-chevron-right ms-1"></i></button>
+        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill px-3" onclick="nextSinglePage()">
+            <span class="d-none d-sm-inline me-1">Halaman Selanjutnya</span><i class="bi bi-chevron-right"></i>
+        </button>
     </div>
 
     <!-- Reader Container -->

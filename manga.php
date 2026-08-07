@@ -133,6 +133,13 @@ function formatTanggalIndo($datetime) {
         .list-group-item.just-added {
             animation: newChapterRowFlash 2s ease-out;
         }
+        @media (max-width: 576px) {
+            .theme-toggle-btn { width: 42px; height: 42px; }
+            .fav-star-btn { width: 44px; height: 44px; }
+
+            .action-buttons-row { flex-direction: column; align-items: stretch !important; }
+            .action-buttons-row .btn { width: 100%; margin-left: 0 !important; }
+        }
     </style>
 </head>
 <body>
@@ -145,7 +152,7 @@ function formatTanggalIndo($datetime) {
         </a>
         <div class="d-flex align-items-center gap-2">
             <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteMangaModal" title="Hapus Manga Ini">
-                <i class="bi bi-trash3 me-1"></i> Hapus Manga
+                <i class="bi bi-trash3 me-1"></i> <span class="d-none d-sm-inline">Hapus Manga</span>
             </button>
             <button type="button" class="theme-toggle-btn" id="themeToggle" title="Ganti Mode Gelap/Terang">
                 <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
@@ -190,7 +197,7 @@ function formatTanggalIndo($datetime) {
     <?php endif; ?>
 
     <!-- Action Buttons (Resume/Start/Update) -->
-    <div class="d-flex flex-wrap align-items-center gap-2 mb-4 p-3 rounded-3" style="background: var(--bs-secondary-bg); border: 1px solid var(--bs-border-color);">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-4 p-3 rounded-3 action-buttons-row" style="background: var(--bs-secondary-bg); border: 1px solid var(--bs-border-color);">
         <?php if ($firstChapter): ?>
             <?php if (!empty($manga['last_read_chapter_id'])): ?>
                 <a class="btn btn-primary fw-semibold px-3" href="reader.php?chapter_id=<?= urlencode($manga['last_read_chapter_id']) ?>">
