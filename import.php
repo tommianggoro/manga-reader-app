@@ -16,14 +16,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_FILES["backup_file"])) {
             throw new Exception("Format berkas JSON backup tidak valid.");
         }
 
+        $userId = currentUserId();
+        $isLegacyFormat = ($data["version"] ?? "1.0") === "1.0";
+
         $pdo->beginTransaction();
 
         $importedMangaCount = 0;
         $importedChapterCount = 0;
 
         $stmtManga = $pdo->prepare("
-            INSERT INTO mangas (manga_id, title, alternative_title, description, cover_image_url, latest_chapter_number, author, artist, genres, release_year, rating, is_favorite, last_read_chapter_id, last_read_chapter_number, last_read_at)
-            VALUES (:manga_id, :title, :alt_title, :description, :cover, :latest_ch, :author, :artist, :genres, :release_year, :rating, :is_favorite, :last_read_id, :last_read_num, :last_read_at)
+            INSERT INTO mangas (manga_id, title, alternative_title, description, cover_image_url, latest_chapter_number, author, artist, genres, release_year, rating)
+            VALUES (:manga_id, :title, :alt_title, :description, :cover, :latest_ch, :author, :artist, :genres, :release_year, :rating)
             ON DUPLICATE KEY UPDATE
                 title = VALUES(title),
                 alternative_title = VALUES(alternative_title),
@@ -34,11 +37,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_FILES["backup_file"])) {
                 artist = VALUES(artist),
                 genres = VALUES(genres),
                 release_year = VALUES(release_year),
-                rating = VALUES(rating),
-                is_favorite = VALUES(is_favorite),
-                last_read_chapter_id = VALUES(last_read_chapter_id),
-                last_read_chapter_number = VALUES(last_read_chapter_number),
-                last_read_at = VALUES(last_read_at)
+                rating = VALUES(rating)
         ");
 
         $stmtChapter = $pdo->prepare("
@@ -56,6 +55,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_FILES["backup_file"])) {
             ON DUPLICATE KEY UPDATE filename = VALUES(filename)
         ");
 
+        $stmtUserState = $pdo->prepare("
+            INSERT INTO user_manga_state (user_id, manga_id, is_favorite, last_read_chapter_id, last_read_chapter_number, last_read_at)
+            VALUES (:uid, :mid, :fav, :cid, :cnum, :at)
+            ON DUPLICATE KEY UPDATE
+                is_favorite = VALUES(is_favorite),
+                last_read_chapter_id = VALUES(last_read_chapter_id),
+                last_read_chapter_number = VALUES(last_read_chapter_number),
+                last_read_at = VALUES(last_read_at)
+        ");
+
         foreach ($data["mangas"] as $m) {
             $stmtManga->execute([
                 ":manga_id" => $m["manga_id"],
@@ -69,12 +78,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_FILES["backup_file"])) {
                 ":genres" => $m["genres"] ?? "",
                 ":release_year" => $m["release_year"] ?? "",
                 ":rating" => $m["rating"] ?? null,
-                ":is_favorite" => !empty($m["is_favorite"]) ? 1 : 0,
-                ":last_read_id" => $m["last_read_chapter_id"] ?? null,
-                ":last_read_num" => $m["last_read_chapter_number"] ?? null,
-                ":last_read_at" => $m["last_read_at"] ?? null,
             ]);
             $importedMangaCount++;
+
+            // Backward compatibility: backup lama (v1.0) menyimpan favorite/last_read
+            // di dalam tiap item manga. Pulihkan sebagai status milik user yang mengimpor sekarang.
+            if ($isLegacyFormat && (!empty($m["is_favorite"]) || !empty($m["last_read_chapter_id"]))) {
+                $stmtUserState->execute([
+                    ":uid" => $userId,
+                    ":mid" => $m["manga_id"],
+                    ":fav" => !empty($m["is_favorite"]) ? 1 : 0,
+                    ":cid" => $m["last_read_chapter_id"] ?? null,
+                    ":cnum" => $m["last_read_chapter_number"] ?? null,
+                    ":at" => $m["last_read_at"] ?? null,
+                ]);
+            }
 
             if (isset($m["chapters"]) && is_array($m["chapters"])) {
                 foreach ($m["chapters"] as $ch) {
@@ -100,6 +118,42 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_FILES["backup_file"])) {
                         }
                     }
                 }
+            }
+        }
+
+        // Format baru (v2.0): status user tersimpan terpisah di "user_state"
+        if (!$isLegacyFormat && isset($data["user_state"]) && is_array($data["user_state"])) {
+            $favorites = $data["user_state"]["favorites"] ?? [];
+            $lastRead = $data["user_state"]["last_read"] ?? [];
+            $readingProgress = $data["user_state"]["reading_progress"] ?? [];
+
+            $mangaIdsWithState = array_unique(array_merge($favorites, array_keys($lastRead)));
+            foreach ($mangaIdsWithState as $mid) {
+                $lr = $lastRead[$mid] ?? null;
+                $stmtUserState->execute([
+                    ":uid" => $userId,
+                    ":mid" => $mid,
+                    ":fav" => in_array($mid, $favorites, true) ? 1 : 0,
+                    ":cid" => $lr["chapter_id"] ?? null,
+                    ":cnum" => $lr["chapter_number"] ?? null,
+                    ":at" => $lr["last_read_at"] ?? null,
+                ]);
+            }
+
+            $stmtProgress = $pdo->prepare("
+                INSERT INTO reading_progress (user_id, chapter_id, scroll_position, single_page_index)
+                VALUES (:uid, :cid, :scroll, :page)
+                ON DUPLICATE KEY UPDATE
+                    scroll_position = VALUES(scroll_position),
+                    single_page_index = VALUES(single_page_index)
+            ");
+            foreach ($readingProgress as $chapterId => $prog) {
+                $stmtProgress->execute([
+                    ":uid" => $userId,
+                    ":cid" => $chapterId,
+                    ":scroll" => $prog["scroll_position"] ?? null,
+                    ":page" => $prog["single_page_index"] ?? null,
+                ]);
             }
         }
 

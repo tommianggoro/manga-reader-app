@@ -13,12 +13,27 @@ $stmt = $pdo->prepare("SELECT * FROM mangas WHERE manga_id = :id");
 $stmt->execute([":id" => $chapter["manga_id"]]);
 $manga = $stmt->fetch();
 
-// Tandai chapter ini sebagai yang terakhir dibaca
-$stmt = $pdo->prepare("UPDATE mangas SET last_read_chapter_id = :cid, last_read_chapter_number = :cnum, last_read_at = NOW() WHERE manga_id = :mid");
+$userId = currentUserId();
+
+// Ambil posisi baca terakhir chapter ini khusus untuk user yang login
+$stmt = $pdo->prepare("SELECT scroll_position, single_page_index FROM reading_progress WHERE user_id = :uid AND chapter_id = :cid");
+$stmt->execute([":uid" => $userId, ":cid" => $chapterId]);
+$savedProgress = $stmt->fetch();
+
+// Tandai chapter ini sebagai yang terakhir dibaca, khusus untuk user ini
+$stmt = $pdo->prepare("
+    INSERT INTO user_manga_state (user_id, manga_id, last_read_chapter_id, last_read_chapter_number, last_read_at)
+    VALUES (:uid, :mid, :cid, :cnum, NOW())
+    ON DUPLICATE KEY UPDATE
+        last_read_chapter_id = VALUES(last_read_chapter_id),
+        last_read_chapter_number = VALUES(last_read_chapter_number),
+        last_read_at = VALUES(last_read_at)
+");
 $stmt->execute([
+    ":uid" => $userId,
+    ":mid" => $chapter["manga_id"],
     ":cid" => $chapter["chapter_id"],
     ":cnum" => $chapter["chapter_number"],
-    ":mid" => $chapter["manga_id"],
 ]);
 
 $stmt = $pdo->prepare("SELECT * FROM chapter_images WHERE chapter_id = :id ORDER BY page_number ASC");
@@ -255,6 +270,9 @@ $allChapters = $stmt->fetchAll();
             <button type="button" class="theme-toggle-btn" id="themeToggle" title="Ganti Mode Gelap/Terang">
                 <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
             </button>
+            <a href="logout.php" class="theme-toggle-btn" title="Keluar (<?= htmlspecialchars(currentUsername()) ?>)">
+                <i class="bi bi-box-arrow-right"></i>
+            </a>
         </div>
     </nav>
 
@@ -439,6 +457,9 @@ $allChapters = $stmt->fetchAll();
 
             if (layout === "single_page") {
                 document.body.classList.add("mode-single-page");
+                if (savedSinglePageIndex !== null && savedSinglePageIndex < totalPages) {
+                    currentPageIndex = savedSinglePageIndex;
+                }
                 updateSinglePageUI();
             } else {
                 document.body.classList.remove("mode-single-page");
@@ -473,6 +494,8 @@ $allChapters = $stmt->fetchAll();
             }
 
             window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            saveReadProgress(null, currentPageIndex);
         }
 
         function prevSinglePage() {
@@ -659,30 +682,32 @@ $allChapters = $stmt->fetchAll();
         // LOGIKA SIMPAN & PULIHKAN POSISI BACA (SCROLL)
         // ==========================================
         const currentChapterId = <?= json_encode($chapter['chapter_id']) ?>;
-        const storageKey = `read_pos_${currentChapterId}`;
+        const savedScrollPosition = <?= ($savedProgress && $savedProgress['scroll_position'] !== null) ? (int)$savedProgress['scroll_position'] : 'null' ?>;
+        const savedSinglePageIndex = <?= ($savedProgress && $savedProgress['single_page_index'] !== null) ? (int)$savedProgress['single_page_index'] : 'null' ?>;
 
-        // 1. Pulihkan Posisi Baca Terakhir Saat Halaman Selesai Dimuat
+        async function saveReadProgress(scrollPosition, singlePageIndex) {
+            try {
+                await fetch("save_progress.php", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: `chapter_id=${encodeURIComponent(currentChapterId)}` +
+                        `&scroll_position=${scrollPosition === null ? "" : scrollPosition}` +
+                        `&single_page_index=${singlePageIndex === null ? "" : singlePageIndex}`,
+                });
+            } catch (err) { /* tidak kritikal, diamkan */ }
+        }
+
+        // 1. Pulihkan posisi scroll (mode Webtoon) saat halaman selesai dimuat
         window.addEventListener("load", () => {
             const layout = localStorage.getItem("manga_reader_layout") || "webtoon";
-            
-            // Fitur ini berfokus pada mode Webtoon (Scroll Vertikal)
-            if (layout === "webtoon") {
-                const savedPosition = localStorage.getItem(storageKey);
-                if (savedPosition) {
-                    const targetY = parseInt(savedPosition, 10);
-                    
-                    // Menggunakan setTimeout untuk memastikan gambar/DOM sudah ter-render sempurna
-                    setTimeout(() => {
-                        window.scrollTo({
-                            top: targetY,
-                            behavior: "smooth" // Gunakan 'auto' jika ingin lompat tanpa animasi
-                        });
-                    }, 300);
-                }
+            if (layout === "webtoon" && savedScrollPosition) {
+                setTimeout(() => {
+                    window.scrollTo({ top: savedScrollPosition, behavior: "smooth" });
+                }, 300);
             }
         });
 
-        // 2. Simpan Posisi Scroll Secara Real-Time (Debounced untuk Kinerja Ringan)
+        // 2. Simpan posisi scroll secara real-time (debounced)
         let scrollSaveTimeout;
         window.addEventListener("scroll", () => {
             const layout = localStorage.getItem("manga_reader_layout") || "webtoon";
@@ -690,13 +715,8 @@ $allChapters = $stmt->fetchAll();
 
             clearTimeout(scrollSaveTimeout);
             scrollSaveTimeout = setTimeout(() => {
-                // Jangan simpan jika pengguna berada di paling atas halaman
-                if (window.scrollY > 100) {
-                    localStorage.setItem(storageKey, Math.round(window.scrollY));
-                } else {
-                    localStorage.removeItem(storageKey);
-                }
-            }, 200); // Menunggu 200ms setelah user berhenti scroll
+                saveReadProgress(window.scrollY > 100 ? Math.round(window.scrollY) : 0, null);
+            }, 400);
         });
     </script>
 </body>

@@ -10,11 +10,16 @@ requireAuth();
 
 header("Content-Type: application/json; charset=utf-8");
 
+$userId = currentUserId();
 $rows = $pdo->query("SELECT manga_id, latest_chapter_number FROM mangas")->fetchAll();
 
 $totalManga = count($rows);
 $totalChapters = (int) $pdo->query("SELECT COUNT(*) FROM chapters")->fetchColumn();
-$totalFavorites = (int) $pdo->query("SELECT COUNT(*) FROM mangas WHERE is_favorite = 1")->fetchColumn();
+
+$stmt = $pdo->prepare("SELECT COUNT(*) FROM user_manga_state WHERE user_id = :uid AND is_favorite = 1");
+$stmt->execute([":uid" => $userId]);
+$totalFavorites = (int) $stmt->fetchColumn();
+
 $recentlyUpdated = (int) $pdo->query("SELECT COUNT(DISTINCT manga_id) FROM chapters WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)")->fetchColumn();
 
 $mangas = [];

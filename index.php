@@ -2,7 +2,16 @@
 require_once "config.php";
 requireAuth();
 
-$mangas = $pdo->query("SELECT * FROM mangas ORDER BY is_favorite DESC, title ASC")->fetchAll();
+$userId = currentUserId();
+
+$stmt = $pdo->prepare("
+    SELECT m.*, COALESCE(s.is_favorite, 0) AS is_favorite
+    FROM mangas m
+    LEFT JOIN user_manga_state s ON s.manga_id = m.manga_id AND s.user_id = :uid
+    ORDER BY is_favorite DESC, m.title ASC
+");
+$stmt->execute([":uid" => $userId]);
+$mangas = $stmt->fetchAll();
 
 // Hitung statistik koleksi
 $totalManga = count($mangas);
@@ -292,6 +301,9 @@ $importError = $_GET["import_error"] ?? null;
             <button type="button" class="theme-toggle-btn ms-1" id="themeToggle" title="Ganti Mode Gelap/Terang">
                 <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
             </button>
+            <a href="logout.php" class="theme-toggle-btn" title="Keluar (<?= htmlspecialchars(currentUsername()) ?>)">
+                <i class="bi bi-box-arrow-right"></i>
+            </a>
         </div>
     </div>
 
