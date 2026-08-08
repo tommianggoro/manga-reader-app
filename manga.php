@@ -3,9 +3,16 @@ require_once "config.php";
 requireAuth();
 
 $mangaId = $_GET["manga_id"] ?? die("manga_id wajib diisi");
+$userId = currentUserId();
 
-$stmt = $pdo->prepare("SELECT * FROM mangas WHERE manga_id = :id");
-$stmt->execute([":id" => $mangaId]);
+$stmt = $pdo->prepare("
+    SELECT m.*, COALESCE(s.is_favorite, 0) AS is_favorite,
+           s.last_read_chapter_id, s.last_read_chapter_number, s.last_read_at
+    FROM mangas m
+    LEFT JOIN user_manga_state s ON s.manga_id = m.manga_id AND s.user_id = :uid
+    WHERE m.manga_id = :id
+");
+$stmt->execute([":uid" => $userId, ":id" => $mangaId]);
 $manga = $stmt->fetch();
 if (!$manga) die("Manga tidak ditemukan di database.");
 
@@ -157,6 +164,9 @@ function formatTanggalIndo($datetime) {
             <button type="button" class="theme-toggle-btn" id="themeToggle" title="Ganti Mode Gelap/Terang">
                 <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
             </button>
+            <a href="logout.php" class="theme-toggle-btn" title="Keluar (<?= htmlspecialchars(currentUsername()) ?>)">
+                <i class="bi bi-box-arrow-right"></i>
+            </a>
         </div>
     </div>
 
