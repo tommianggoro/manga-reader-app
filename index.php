@@ -32,6 +32,12 @@ foreach ($mangas as $m) {
 $allGenres = array_keys($allGenres);
 sort($allGenres);
 
+$sourcesByManga = [];
+$srcRows = $pdo->query("SELECT manga_id, source FROM manga_sources")->fetchAll();
+foreach ($srcRows as $row) {
+    $sourcesByManga[$row['manga_id']][] = $row['source'];
+}
+
 $importSuccess = $_GET["import_success"] ?? null;
 $importedCount = $_GET["mangas"] ?? 0;
 $importError = $_GET["import_error"] ?? null;
@@ -323,9 +329,9 @@ $importError = $_GET["import_error"] ?? null;
     </div>
 
     <!-- Form Tambah Manga -->
-    <form class="row g-2 add-form mb-3" action="crawl.php" method="GET" id="addMangaForm">
+    <form class="row g-2 add-form mb-3" action="add_manga.php" method="GET" id="addMangaForm">
         <div class="col-12 col-sm">
-            <input type="text" name="manga_id" id="mangaIdInput" class="form-control form-control-lg fs-6" placeholder="Tempel manga_id di sini (contoh: solo-leveling) untuk menambah/update..." required>
+            <input type="text" name="manga_id" id="mangaIdInput" class="form-control form-control-lg fs-6" placeholder="Tempel manga_id Shinigami (mis: solo-leveling) ATAU URL Komiku (https://komiku.org/manga/...)  untuk menambah/update..." required>
         </div>
         <div class="col-12 col-sm-auto">
             <button type="submit" class="btn btn-primary btn-lg fs-6 w-100"><i class="bi bi-plus-lg"></i> Tambah / Update</button>
@@ -387,6 +393,9 @@ $importError = $_GET["import_error"] ?? null;
                             </button>
                         </div>
                         <div class="card-body p-2 d-flex flex-column justify-content-between">
+                            <?php foreach (($sourcesByManga[$m['manga_id']] ?? []) as $src): ?>
+                                <span class="badge text-bg-dark" style="font-size:.65rem;"><?= htmlspecialchars($src) ?></span>
+                            <?php endforeach; ?>
                             <div class="card-title text-truncate mb-1" title="<?= htmlspecialchars($m['title']) ?>"><?= htmlspecialchars($m['title']) ?></div>
                             <div class="d-flex align-items-center justify-content-between">
                                 <span class="badge text-bg-secondary fw-normal chapter-badge" data-chapter="<?= htmlspecialchars(formatChapterNumber($m['latest_chapter_number'])) ?>">Ch. <?= htmlspecialchars(formatChapterNumber($m['latest_chapter_number'])) ?></span>

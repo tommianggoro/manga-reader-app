@@ -16,6 +16,11 @@ $stmt->execute([":uid" => $userId, ":id" => $mangaId]);
 $manga = $stmt->fetch();
 if (!$manga) die("Manga tidak ditemukan di database.");
 
+require_once "sync_functions.php";
+$mangaSourceBindings = getMangaSources($pdo, $mangaId); // [['source'=>..,'source_ref'=>..], ...]
+$sourceLabelsMap = [];
+foreach (getAllSources() as $key => $adapter) $sourceLabelsMap[$key] = $adapter->getLabel();
+
 $stmt = $pdo->prepare("SELECT * FROM chapters WHERE manga_id = :id ORDER BY chapter_number DESC");
 $stmt->execute([":id" => $mangaId]);
 $chapters = $stmt->fetchAll();
@@ -222,8 +227,18 @@ function formatTanggalIndo($datetime) {
                 </a>
             <?php endif; ?>
         <?php endif; ?>
-        <a class="btn btn-outline-warning ms-auto" href="crawl.php?manga_id=<?= urlencode($manga['manga_id']) ?>" target="_blank" title="Cek & Sync Chapter Baru">
-            <i class="bi bi-arrow-repeat me-1"></i> Update / Sync Chapter
+        <?php if (count($mangaSourceBindings) > 1): ?>
+        <select class="form-select form-select-sm ms-auto" style="max-width: 220px;" id="preferredSourceSelect">
+            <option value="">Sumber Prioritas: Otomatis</option>
+            <?php foreach ($mangaSourceBindings as $b): ?>
+                <option value="<?= htmlspecialchars($b['source']) ?>" <?= ($manga['preferred_source'] ?? '') === $b['source'] ? 'selected' : '' ?>>
+                    Prioritas: <?= htmlspecialchars($sourceLabelsMap[$b['source']] ?? $b['source']) ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+        <?php endif; ?>
+        <a class="btn btn-outline-warning <?= count($mangaSourceBindings) > 1 ? '' : 'ms-auto' ?>" href="crawl.php?manga_id=<?= urlencode($manga['manga_id']) ?>" target="_blank" title="Cek & Sync Chapter Baru">
+            <i class="bi bi-arrow-repeat me-1"></i> Update / Sync Chapter (<?= count($mangaSourceBindings) ?> sumber)
         </a>
     </div>
 
@@ -353,6 +368,20 @@ function formatTanggalIndo($datetime) {
             icon.classList.toggle("bi-star", !data.is_favorite);
         } catch (err) { alert("Gagal update favorit: " + err.message); }
     });
+
+    const preferredSourceSelect = document.getElementById("preferredSourceSelect");
+    if (preferredSourceSelect) {
+        preferredSourceSelect.addEventListener("change", async () => {
+            try {
+                await fetch("save_preferred_source.php", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: "manga_id=" + encodeURIComponent(<?= json_encode($mangaId) ?>) +
+                          "&source=" + encodeURIComponent(preferredSourceSelect.value),
+                });
+            } catch (err) { alert("Gagal simpan preferensi sumber: " + err.message); }
+        });
+    }
 
     // Hapus Single Manga
     const confirmDeleteBtn = document.getElementById("confirmDeleteBtn");
