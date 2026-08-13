@@ -1,8 +1,32 @@
 <?php
 require_once "config.php";
+require_once "sync_functions.php";
 requireAuth();
 
 $mangaId = $_GET["manga_id"] ?? die("manga_id wajib diisi");
+
+$stmt = $pdo->prepare("SELECT title FROM mangas WHERE manga_id = :id");
+$stmt->execute([":id" => $mangaId]);
+$manga = $stmt->fetch();
+if (!$manga) die("Manga tidak ditemukan.");
+
+$sourceBindings = getMangaSources($pdo, $mangaId); // [['source'=>..,'source_ref'=>..], ...]
+if (empty($sourceBindings)) die("Manga ini belum terhubung ke sumber manapun.");
+
+$stmt = $pdo->prepare("SELECT preferred_source FROM mangas WHERE manga_id = :id");
+$stmt->execute([":id" => $mangaId]);
+$preferredSource = $stmt->fetchColumn() ?: null;
+
+// Urutkan supaya preferred_source jalan duluan (kalau ada)
+usort($sourceBindings, function ($a, $b) use ($preferredSource) {
+    if (!$preferredSource) return 0;
+    if ($a["source"] === $preferredSource) return -1;
+    if ($b["source"] === $preferredSource) return 1;
+    return 0;
+});
+
+$sourceLabels = [];
+foreach (getAllSources() as $key => $adapter) $sourceLabels[$key] = $adapter->getLabel();
 ?>
 <!DOCTYPE html>
 <html lang="id" data-bs-theme="dark">
@@ -22,86 +46,33 @@ $mangaId = $_GET["manga_id"] ?? die("manga_id wajib diisi");
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23f2a541'/%3E%3Ctext x='50' y='68' font-size='55' text-anchor='middle'%3E%F0%9F%93%96%3C/text%3E%3C/svg%3E">
     <style>
         :root, [data-bs-theme="dark"] {
-            --bs-body-bg: #0b0f17;
-            --bs-body-color: #f1f3f5;
-            --bs-primary: #f2a541;
-            --bs-primary-rgb: 242, 165, 65;
-            --bs-border-color: #1e2433;
-            --bs-secondary-bg: #131824;
+            --bs-body-bg: #0b0c10; --bs-body-color: #eae7e0; --bs-primary: #f2a541;
+            --bs-primary-rgb: 242, 165, 65; --bs-border-color: #1e2433; --bs-secondary-bg: #131824;
         }
-        body { 
-            font-family: 'Inter', system-ui, sans-serif; 
-            letter-spacing: -0.01em;
-        }
+        body { font-family: 'Inter', system-ui, sans-serif; letter-spacing: -0.01em; }
         .brand-font { font-family: 'Bitter', Georgia, serif; }
-
-        .crawler-card {
-            background: var(--bs-secondary-bg);
-            border: 1px solid var(--bs-border-color);
-            border-radius: 16px;
-            padding: 2rem;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-        }
-
-        .progress {
-            background-color: #1c2333;
-            border-radius: 50rem;
-            height: 16px;
-            overflow: hidden;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
-        .progress-bar {
-            background: linear-gradient(90deg, #f2a541, #f7bc70);
-            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        #log { 
-            background: #111; 
-            border-radius: 8px; 
-            padding: 1rem; 
-            margin-top: 1rem; 
-            max-height: 300px; /* Membatasi tinggi kotak log agar tidak melar ke bawah */
-            overflow-y: auto;  /* Mengaktifkan scrollbar vertikal saat teks penuh */
-            font-family: monospace; 
-            font-size: 0.85rem; 
-        }
-        
-        /* Custom scrollbar untuk panel log */
+        .crawler-card { background: var(--bs-secondary-bg); border: 1px solid var(--bs-border-color); border-radius: 16px; padding: 2rem; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2); }
+        .progress { background-color: #1c2333; border-radius: 50rem; height: 16px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.05); }
+        .progress-bar { background: linear-gradient(90deg, #f2a541, #f7bc70); transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        #log { background: #111; border-radius: 8px; padding: 1rem; margin-top: 1rem; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; }
         #log::-webkit-scrollbar { width: 6px; }
-        #log::-webkit-scrollbar-track { background: transparent; }
         #log::-webkit-scrollbar-thumb { background: #1e2433; border-radius: 10px; }
-
-        #log div {
-            padding: 4px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.02);
-            line-height: 1.5;
-            display: flex;
-            align-items: flex-start;
-            gap: 0.5rem;
-        }
-
-        .back-btn {
-            border-radius: 8px;
-            padding: 0.6rem 1.2rem;
-            font-weight: 500;
-            transition: all 0.2s;
-        }
+        #log div { padding: 4px 0; border-bottom: 1px solid rgba(255, 255, 255, 0.02); line-height: 1.5; }
+        .source-badge { font-size: 0.75rem; }
     </style>
 </head>
 <body>
 <div class="container py-5" style="max-width: 750px;">
-
     <div class="crawler-card">
         <div class="d-flex align-items-center gap-3 mb-3">
             <div class="spinner-border text-primary spinner-border-sm" id="spinner" role="status"></div>
-            <h1 class="brand-font h4 mb-0 text-white" id="title">Memulai crawling...</h1>
+            <h1 class="brand-font h4 mb-0 text-white" id="title">Memulai crawling <?= htmlspecialchars($manga['title']) ?>...</h1>
         </div>
 
         <div class="d-flex justify-content-between align-items-center mb-2 small text-secondary fw-medium">
-            <span>Status Progres Pengunduhan</span>
+            <span id="sourceLabel">Menyiapkan...</span>
             <span id="percent" class="text-primary fw-semibold">0%</span>
         </div>
-        
         <div class="progress mb-4">
             <div class="progress-bar progress-bar-striped progress-bar-animated" id="bar" role="progressbar" style="width: 0%"></div>
         </div>
@@ -112,93 +83,99 @@ $mangaId = $_GET["manga_id"] ?? die("manga_id wajib diisi");
         <div id="log"></div>
 
         <div class="text-end mt-4">
-            <a class="btn btn-outline-secondary back-btn" id="doneLink" href="index.php" style="display:none">
-                <i class="bi bi-arrow-left me-1"></i> Kembali ke Koleksi
+            <a class="btn btn-outline-secondary" id="doneLink" href="manga.php?manga_id=<?= urlencode($mangaId) ?>" style="display:none">
+                <i class="bi bi-arrow-left me-1"></i> Kembali ke Detail Manga
             </a>
         </div>
     </div>
-
 </div>
 
 <script>
     const mangaId = <?= json_encode($mangaId) ?>;
+    const sourceQueue = <?= json_encode($sourceBindings) ?>; // [{source, source_ref}, ...]
+    const sourceLabels = <?= json_encode($sourceLabels) ?>;
+
     const logEl = document.getElementById("log");
     const barEl = document.getElementById("bar");
     const percentEl = document.getElementById("percent");
     const titleEl = document.getElementById("title");
+    const sourceLabelEl = document.getElementById("sourceLabel");
     const doneLink = document.getElementById("doneLink");
     const spinner = document.getElementById("spinner");
 
     function log(msg) {
         const p = document.createElement("div");
         p.textContent = msg;
-        logEl.appendChild(p); // Menggunakan appendChild agar log baru berada di bawah
-
-        // Otomatis menggulirkan scrollbar ke posisi paling bawah setiap ada log baru
+        logEl.appendChild(p);
         logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    async function syncOneSource(source, sourceRef) {
+        sourceLabelEl.textContent = `Sumber: ${sourceLabels[source] || source}`;
+        log(`\n=== Sumber: ${sourceLabels[source] || source} ===`);
+
+        const initRes = await fetch(`crawler.php?action=init&manga_id=${encodeURIComponent(mangaId)}&source=${encodeURIComponent(source)}&source_ref=${encodeURIComponent(sourceRef)}`);
+        const initData = await initRes.json();
+        if (!initData.success) { log("ERROR init: " + initData.error); return { done: 0, skipped: 0 }; }
+
+        titleEl.textContent = initData.title;
+        const total = initData.latest_chapter_number || 1;
+        let currentChapterId = initData.latest_chapter_id;
+        let done = 0, skipped = 0;
+
+        while (currentChapterId) {
+            let data = null, attempt = 0;
+            while (attempt < 3) {
+                attempt++;
+                try {
+                    const res = await fetch(`crawler.php?action=step&manga_id=${encodeURIComponent(mangaId)}&source=${encodeURIComponent(source)}&source_ref=${encodeURIComponent(sourceRef)}&chapter_id=${encodeURIComponent(currentChapterId)}`);
+                    data = await res.json();
+                    if (data.success) break;
+                    log(`Percobaan ${attempt} gagal: ${data.error}`);
+                } catch (err) {
+                    log(`Percobaan ${attempt} gagal: ${err.message}`);
+                }
+                if (attempt < 3) await new Promise(r => setTimeout(r, 1000));
+            }
+
+            if (!data || !data.success) {
+                log("❌ Berhenti karena error berulang pada sumber ini.");
+                break;
+            }
+
+            if (data.skipped) {
+                skipped++;
+                log(`— Chapter ${data.chapter_number} sudah ada, dilewati`);
+            } else {
+                done++;
+                log(`✓ Chapter ${data.chapter_number} berhasil disimpan`);
+            }
+
+            const percent = Math.min(100, Math.round(((done + skipped) / total) * 100));
+            barEl.style.width = percent + "%";
+            percentEl.textContent = `${percent}% (${done} baru, ${skipped} dilewati)`;
+
+            currentChapterId = data.prev_chapter_id;
+        }
+
+        return { done, skipped };
     }
 
     async function run() {
         try {
-            titleEl.textContent = "Mengambil info manga...";
-            const initRes = await fetch(`crawler.php?action=init&manga_id=${encodeURIComponent(mangaId)}`);
-            const initData = await initRes.json();
-            if (!initData.success) { log("ERROR: " + initData.error); spinner.remove(); return; }
-
-            titleEl.textContent = initData.title;
-            const total = initData.latest_chapter_number || 1;
-            let currentChapterId = initData.latest_chapter_id;
-            let done = 0;
-            let skipped = 0;
-
-            while (currentChapterId) {
-                let data = null;
-                let attempt = 0;
-                const maxAttempts = 3;
-
-                while (attempt < maxAttempts) {
-                    attempt++;
-                    try {
-                        const res = await fetch(
-                            `crawler.php?action=step&manga_id=${encodeURIComponent(mangaId)}&chapter_id=${encodeURIComponent(currentChapterId)}`
-                        );
-                        data = await res.json();
-                        if (data.success) break;
-                        log(`Percobaan ${attempt} gagal: ${data.error}`);
-                    } catch (err) {
-                        log(`Percobaan ${attempt} gagal: ${err.message}`);
-                    }
-                    if (attempt < maxAttempts) await new Promise(r => setTimeout(r, 1000));
-                }
-
-                if (!data || !data.success) {
-                    log("❌ Berhenti karena error berulang. Kembalilah nanti untuk melanjutkan progress aman.");
-                    break;
-                }
-
-                if (data.repaired) {
-                    skipped++;
-                    log(`🔧 Chapter ${data.chapter_number} ditambal (link diperbaiki)`);
-                } else if (data.skipped) {
-                    skipped++;
-                    log(`— Chapter ${data.chapter_number} sudah ada, dilewati`);
-                } else {
-                    done++;
-                    log(`✓ Chapter ${data.chapter_number} berhasil disimpan`);
-                }
-
-                const percent = Math.min(100, Math.round(((done + skipped) / total) * 100));
-                barEl.style.width = percent + "%";
-                percentEl.textContent = `${percent}% (${done} baru, ${skipped} dilewati)`;
-
-                currentChapterId = data.prev_chapter_id;
+            let totalDone = 0, totalSkipped = 0;
+            for (const binding of sourceQueue) {
+                const r = await syncOneSource(binding.source, binding.source_ref);
+                totalDone += r.done;
+                totalSkipped += r.skipped;
             }
 
             titleEl.textContent += " — Selesai!";
+            sourceLabelEl.textContent = `${sourceQueue.length} sumber diproses`;
             barEl.style.width = "100%";
             barEl.classList.remove("progress-bar-striped", "progress-bar-animated");
             spinner.className = "bi bi-check-circle-fill text-success fs-5";
-            log(`Proses Selesai. Total: ${done} chapter baru, ${skipped} chapter dilewati.`);
+            log(`\nProses Selesai. Total: ${totalDone} chapter baru, ${totalSkipped} chapter dilewati dari ${sourceQueue.length} sumber.`);
             doneLink.style.display = "inline-block";
         } catch (err) {
             log("ERROR: " + err.message);

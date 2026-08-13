@@ -434,3 +434,4 @@ FodyWeavers.xsd
 
 #Exclude file
 generate_password_hash.php
+*.md
