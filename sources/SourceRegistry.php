@@ -2,6 +2,7 @@
 require_once __DIR__ . "/MangaSourceInterface.php";
 require_once __DIR__ . "/ShinigamiSource.php";
 require_once __DIR__ . "/KomikuSource.php";
+require_once __DIR__ . "/CosmicScansSource.php";
 
 /**
  * Daftar pusat semua sumber manga yang aktif di aplikasi ini.
@@ -22,6 +23,7 @@ function getAllSources(): array
     if ($sources === null) {
         $sources = [
             'komiku' => new KomikuSource(),
+            'cosmicscans' => new CosmicScansSource(),
             'shngm'  => new ShinigamiSource(), // fallback, harus di urutan TERAKHIR
         ];
     }
