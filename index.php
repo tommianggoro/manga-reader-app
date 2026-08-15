@@ -1,6 +1,7 @@
 <?php
 require_once "config.php";
 requireAuth();
+require_once "sources/SourceRegistry.php";
 
 $userId = currentUserId();
 
@@ -36,6 +37,37 @@ $sourcesByManga = [];
 $srcRows = $pdo->query("SELECT manga_id, source FROM manga_sources")->fetchAll();
 foreach ($srcRows as $row) {
     $sourcesByManga[$row['manga_id']][] = $row['source'];
+}
+
+// Label tampilan untuk tiap key sumber (mis. "shngm" -> "Shinigami")
+$sourceLabels = [];
+foreach (getAllSources() as $key => $adapter) {
+    $sourceLabels[$key] = $adapter->getLabel();
+}
+
+// Ambil maksimal 3 chapter TERBARU (berdasarkan chapter_number) per manga,
+// beserta tanggal update, untuk ditampilkan di tampilan List.
+$recentChaptersByManga = [];
+$allRecentChapters = $pdo->query("
+    SELECT manga_id, chapter_id, chapter_number, chapter_title, updated_at, created_at
+    FROM chapters
+    ORDER BY manga_id ASC, chapter_number DESC
+")->fetchAll();
+foreach ($allRecentChapters as $ch) {
+    $mid = $ch['manga_id'];
+    if (!isset($recentChaptersByManga[$mid])) {
+        $recentChaptersByManga[$mid] = [];
+    }
+    if (count($recentChaptersByManga[$mid]) < 3) {
+        $recentChaptersByManga[$mid][] = $ch;
+    }
+}
+
+// Helper format tanggal singkat ala Indonesia, mis. "29 Jul 2026"
+function formatTanggalIndo($datetime) {
+    $bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
+    $ts = strtotime($datetime);
+    return date("j", $ts) . " " . $bulan[(int) date("n", $ts) - 1] . " " . date("Y", $ts);
 }
 
 $importSuccess = $_GET["import_success"] ?? null;
@@ -193,6 +225,42 @@ $importError = $_GET["import_error"] ?? null;
             width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.35s ease;
         }
         .manga-list-item .list-img-wrap img.loaded { opacity: 1; }
+
+        /* Source Tags (dipakai di Grid & List) */
+        .source-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+        .source-tag {
+            font-size: 0.62rem;
+            font-weight: 600;
+            background: var(--bs-tertiary-bg);
+            color: var(--bs-primary);
+            border: 1px solid var(--bs-border-color);
+            padding: 0.18rem 0.55rem;
+            border-radius: 50rem;
+            display: inline-flex;
+            align-items: center;
+            white-space: nowrap;
+        }
+
+        /* Recent Chapters Row (List View) */
+        .recent-chapters-row {
+            display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.35rem;
+        }
+        .recent-chapter-chip {
+            font-size: 0.72rem;
+            background: var(--bs-tertiary-bg);
+            border: 1px solid var(--bs-border-color);
+            border-radius: 50rem;
+            padding: 0.15rem 0.6rem;
+            color: var(--bs-body-color);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            white-space: nowrap;
+        }
+        .recent-chapter-date {
+            color: #7c8194;
+            font-size: 0.68rem;
+        }
 
         /* Fav Star Button */
         .fav-star {
@@ -393,9 +461,13 @@ $importError = $_GET["import_error"] ?? null;
                             </button>
                         </div>
                         <div class="card-body p-2 d-flex flex-column justify-content-between">
-                            <?php foreach (($sourcesByManga[$m['manga_id']] ?? []) as $src): ?>
-                                <span class="badge text-bg-dark" style="font-size:.65rem;"><?= htmlspecialchars($src) ?></span>
-                            <?php endforeach; ?>
+                            <?php if (!empty($sourcesByManga[$m['manga_id']])): ?>
+                                <div class="source-tags mb-1">
+                                    <?php foreach ($sourcesByManga[$m['manga_id']] as $src): ?>
+                                        <span class="source-tag"><i class="bi bi-hdd-network me-1"></i><?= htmlspecialchars($sourceLabels[$src] ?? $src) ?></span>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
                             <div class="card-title text-truncate mb-1" title="<?= htmlspecialchars($m['title']) ?>"><?= htmlspecialchars($m['title']) ?></div>
                             <div class="d-flex align-items-center justify-content-between">
                                 <span class="badge text-bg-secondary fw-normal chapter-badge" data-chapter="<?= htmlspecialchars(formatChapterNumber($m['latest_chapter_number'])) ?>">Ch. <?= htmlspecialchars(formatChapterNumber($m['latest_chapter_number'])) ?></span>
@@ -441,7 +513,25 @@ $importError = $_GET["import_error"] ?? null;
                                 <?php if (!empty($m['author'])): ?>
                                     <span><i class="bi bi-person me-1"></i><?= htmlspecialchars($m['author']) ?></span>
                                 <?php endif; ?>
+                                <?php if (!empty($sourcesByManga[$m['manga_id']])): ?>
+                                    <span class="source-tags">
+                                        <?php foreach ($sourcesByManga[$m['manga_id']] as $src): ?>
+                                            <span class="source-tag"><i class="bi bi-hdd-network me-1"></i><?= htmlspecialchars($sourceLabels[$src] ?? $src) ?></span>
+                                        <?php endforeach; ?>
+                                    </span>
+                                <?php endif; ?>
                             </div>
+                            <?php if (!empty($recentChaptersByManga[$m['manga_id']])): ?>
+                                <div class="recent-chapters-row">
+                                    <?php foreach ($recentChaptersByManga[$m['manga_id']] as $rc): ?>
+                                        <span class="recent-chapter-chip">
+                                            <i class="bi bi-journal-text"></i>
+                                            Ch. <?= htmlspecialchars(formatChapterNumber($rc['chapter_number'])) ?>
+                                            <span class="recent-chapter-date"><?= formatTanggalIndo($rc['updated_at'] ?? $rc['created_at']) ?></span>
+                                        </span>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
                         </div>
                         <div class="flex-shrink-0 ms-auto text-end">
                             <button type="button" class="btn rounded-circle fav-star <?= !empty($m['is_favorite']) ? 'active' : '' ?>"
