@@ -10,12 +10,20 @@ require_once __DIR__ . "/MangaSourceInterface.php";
  *
  * Kunci penting AsuraScans dibanding sumber lain:
  *  - URL chapter SANGAT PREDIKTIF: https://asurascans.com/comics/{slug}/chapter/{N}
- *    (N bisa desimal, mis. "12.5"). Karena itu, `source_ref` = slug manga, dan
- *    `chapter_ref` = N itu sendiri (bukan ID/hash acak spt Shinigami) -- jadi
- *    kita TIDAK PERLU cari URL chapter lewat regex, cukup rakit langsung.
- *  - Navigasi "jalan mundur" (prev_source_chapter_ref) diambil dari link
- *    berlabel "Prev" di halaman chapter (linknya HILANG di chapter pertama,
- *    persis dipakai sbg penanda "sudah di chapter paling awal").
+ *    (N bisa desimal, mis. "12.5"). Karena itu, `source_ref` = slug manga --
+ *    tidak perlu cari URL chapter lewat regex, cukup rakit langsung.
+ *  - PENTING soal `chapter_ref` (dipakai sbg `source_chapter_ref`): sync_functions.php
+ *    men-dedup/resume cache (`chapter_sync_cursor`) HANYA berdasarkan (source,
+ *    source_chapter_ref) -- TANPA manga_id. Kalau chapter_ref cuma angka polos
+ *    ("8"), DUA manga AsuraScans berbeda yang sama2 py "chapter 8" akan TABRAKAN
+ *    di kunci yang sama (chapter kedua gagal disimpan / kena skip keliru).
+ *    Karena itu chapter_ref di sini SELALU berformat "{slug}/{nomor}", supaya unik
+ *    global per sumber, bukan cuma nomor mentah.
+ *  - Navigasi "jalan mundur" (prev_source_chapter_ref) TIDAK diambil dari teks
+ *    "Prev" (rawan gagal kalau ada ikon/elemen lain di dalam link), melainkan
+ *    dgn mengumpulkan semua link chapter di halaman lalu ambil nomor terbesar
+ *    yang masih lebih kecil dari chapter saat ini. Di chapter PERTAMA otomatis
+ *    tidak ada kandidat lebih kecil -> null -> penanda alami chain selesai.
  *  - Gambar chapter ada di domain cdn.asurascans.com/asura-images/chapters/...
  *    -- cukup stabil utk diambil langsung pakai regex tanpa bergantung pada DOM.
  *
@@ -129,27 +137,30 @@ class AsuraScansSource implements MangaSourceInterface
         }
 
         // Chapter TERBARU: scan semua link "/comics/{slug}/chapter/{n}", ambil nomor terbesar.
-        // Karena URL prediktif, `latest_chapter_ref` cukup berupa string nomor itu sendiri.
         $latestNumber = 0.0;
-        $latestRef = null;
+        $latestNumStr = null;
         $pattern = '#/comics/' . preg_quote($sourceRef, '#') . '/chapter/([\d.]+)#i';
         if (preg_match_all($pattern, $html, $cm)) {
             foreach ($cm[1] as $numStr) {
                 $num = (float) $numStr;
                 if ($num > $latestNumber) {
                     $latestNumber = $num;
-                    $latestRef = $numStr;
+                    $latestNumStr = $numStr;
                 }
             }
         }
 
-        if (!$latestRef) {
+        if (!$latestNumStr) {
             throw new Exception(
                 "Tidak menemukan link chapter apapun di halaman manga AsuraScans: $url. " .
                 "Kemungkinan struktur halaman berubah. Cuplikan awal respons: \"" .
                 $this->diagnosticSnippet($html) . "\""
             );
         }
+
+        // latest_chapter_ref diberi PREFIX slug ("{slug}/{nomor}") -- lihat catatan di
+        // komentar class ttg kenapa nomor mentah saja tidak aman dipakai sbg source_chapter_ref.
+        $latestRef = $sourceRef . "/" . $latestNumStr;
 
         return [
             "title" => $title,
@@ -168,17 +179,26 @@ class AsuraScansSource implements MangaSourceInterface
 
     public function fetchChapterStep(string $sourceRef, string $chapterRef): array
     {
-        // URL chapter prediktif -- tidak perlu cari href, cukup rakit langsung.
-        $chapterUrl = self::BASE . "/comics/" . $sourceRef . "/chapter/" . $chapterRef;
-        $html = $this->httpGet($chapterUrl);
-        $this->assertLooksLikeRealPage($html, $chapterUrl);
+        // chapterRef berformat "{slug}/{nomor}" (lihat catatan di komentar class).
+        // Ambil segmen nomor di akhir; fallback ke chapterRef mentah kalau ternyata
+        // sudah berupa angka polos saja (kompatibilitas kalau dipanggil manual).
+        if (preg_match('#/([\d.]+)$#', $chapterRef, $nm)) {
+            $numStr = $nm[1];
+        } elseif (preg_match('#^[\d.]+$#', $chapterRef)) {
+            $numStr = $chapterRef;
+        } else {
+            throw new Exception("Format chapter_ref AsuraScans tidak dikenali: $chapterRef");
+        }
 
-        // Nomor chapter = persis chapterRef yang dipakai di URL (paling akurat & stabil,
-        // tidak perlu di-parse ulang dari heading/title yang formatnya bisa berubah).
-        $chapterNumber = (float) $chapterRef;
+        $chapterNumber = (float) $numStr;
         if ($chapterNumber <= 0) {
             throw new Exception("chapter_ref tidak valid: $chapterRef");
         }
+
+        // URL chapter prediktif -- tidak perlu cari href, cukup rakit langsung dari nomor.
+        $chapterUrl = self::BASE . "/comics/" . $sourceRef . "/chapter/" . $numStr;
+        $html = $this->httpGet($chapterUrl);
+        $this->assertLooksLikeRealPage($html, $chapterUrl);
 
         // Judul chapter (opsional): AsuraScans umumnya tidak punya subjudul selain "Chapter N",
         // jadi default kosong kecuali <title> menyertakan teks tambahan setelah nomor.
@@ -219,11 +239,11 @@ class AsuraScansSource implements MangaSourceInterface
         $prevRef = null;
         $prevBestNumber = -1;
         if (preg_match_all('#/comics/' . preg_quote($sourceRef, '#') . '/chapter/([\d.]+)#i', $html, $navm)) {
-            foreach ($navm[1] as $numStr) {
-                $num = (float) $numStr;
+            foreach ($navm[1] as $candidateStr) {
+                $num = (float) $candidateStr;
                 if ($num < $chapterNumber && $num > $prevBestNumber) {
                     $prevBestNumber = $num;
-                    $prevRef = $numStr;
+                    $prevRef = $sourceRef . "/" . $candidateStr;
                 }
             }
         }
