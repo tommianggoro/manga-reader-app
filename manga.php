@@ -131,7 +131,7 @@ function formatTanggalIndo($datetime) {
 
         .description-card { background: var(--bs-secondary-bg); border: 1px solid var(--bs-border-color); border-radius: 12px; }
 
-        .chapter-list-wrap { max-height: 520px; overflow-y: auto; border-radius: 12px; border: 1px solid var(--bs-border-color); }
+        .chapter-list-wrap { max-height: 520px; overflow-y: auto; border-radius: 12px; border: 1px solid var(--bs-border-color); overflow-x: hidden; background: var(--bs-secondary-bg); }
         .list-group-item { background: var(--bs-secondary-bg); border-color: var(--bs-border-color); transition: all 0.15s ease; }
         .list-group-item.current-read { border-left: 4px solid var(--bs-primary); background: var(--bs-tertiary-bg); }
         .list-group-item-action:hover { background: var(--bs-tertiary-bg); transform: translateX(3px); }

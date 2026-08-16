@@ -3,6 +3,7 @@ require_once __DIR__ . "/MangaSourceInterface.php";
 require_once __DIR__ . "/ShinigamiSource.php";
 require_once __DIR__ . "/KomikuSource.php";
 require_once __DIR__ . "/CosmicScansSource.php";
+require_once __DIR__ . "/AsuraScansSource.php";
 
 /**
  * Daftar pusat semua sumber manga yang aktif di aplikasi ini.
@@ -14,8 +15,9 @@ require_once __DIR__ . "/CosmicScansSource.php";
  *   crawl_all.php, sync_functions.php semuanya generic lewat interface ini.
  *
  * URUTAN PENTING untuk detectSourceFromInput(): sumber yang mendeteksi lewat
- * pola URL/domain spesifik (mis. Komiku) harus ditaruh SEBELUM sumber fallback
- * (Shinigami, yang menerima sembarang string bukan-URL sbg manga_id polos).
+ * pola URL/domain spesifik (mis. Komiku, CosmicScans, AsuraScans) harus ditaruh
+ * SEBELUM sumber fallback (Shinigami, yang menerima sembarang string bukan-URL
+ * sbg manga_id polos).
  */
 function getAllSources(): array
 {
@@ -24,6 +26,7 @@ function getAllSources(): array
         $sources = [
             'komiku' => new KomikuSource(),
             'cosmicscans' => new CosmicScansSource(),
+            'asura' => new AsuraScansSource(),
             'shngm'  => new ShinigamiSource(), // fallback, harus di urutan TERAKHIR
         ];
     }

@@ -38,6 +38,18 @@ if (empty($targetIds)) {
 
 try {
     $placeholders = implode(",", array_fill(0, count($targetIds), "?"));
+
+    // PENTING: chapter_sync_cursor TIDAK punya foreign key ke mangas (dipisah sengaja
+    // supaya resume tetap cepat lintas source walau baris chapters-nya sendiri kena
+    // hapus/rebuild), jadi baris cursor lama TIDAK ikut kehapus otomatis lewat
+    // ON DELETE CASCADE spt tabel lain. Kalau tidak dibersihkan manual di sini,
+    // manga yang dihapus lalu ditambah ulang bisa "resume" dari cache sync lama --
+    // termasuk cache yang sempat gagal/salah (mis. prev_source_chapter_ref ke-simpan
+    // NULL akibat bug parser versi sebelumnya) -- dan sync mundur akan berhenti
+    // seolah-olah sudah "selesai", padahal belum.
+    $stmtCursor = $pdo->prepare("DELETE FROM chapter_sync_cursor WHERE manga_id IN ($placeholders)");
+    $stmtCursor->execute(array_values($targetIds));
+
     $stmt = $pdo->prepare("DELETE FROM mangas WHERE manga_id IN ($placeholders)");
     $stmt->execute(array_values($targetIds));
 
