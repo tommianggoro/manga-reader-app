@@ -51,4 +51,21 @@ interface MangaSourceInterface
      * ]
      */
     public function fetchChapterStep(string $sourceRef, string $chapterRef): array;
+
+    /**
+     * Cari manga berdasarkan kata kunci. Dipanggil utk SEMUA sumber sekaligus
+     * dari search_manga_api.php, jadi:
+     *  - TIDAK BOLEH throw hanya karena hasil kosong (return array kosong saja)
+     *  - BOLEH throw kalau request itu sendiri gagal (network/parse error) --
+     *    akan ditangkap per-sumber, tidak menggagalkan sumber lain.
+     *
+     * Kembalikan array of:
+     * [
+     *   'ref' => source_ref (dipakai langsung sbg source_ref saat add_manga.php),
+     *   'title', 'cover_image_url',
+     *   'latest_chapter_number' => float|null,
+     *   'rating' => float|null,
+     * ]
+     */
+    public function search(string $query): array;
 }

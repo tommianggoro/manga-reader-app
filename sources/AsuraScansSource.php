@@ -255,4 +255,45 @@ class AsuraScansSource implements MangaSourceInterface
             "prev_source_chapter_ref" => $prevRef,
         ];
     }
+
+    public function search(string $query, int $page = 1): array
+    {
+        // AsuraScans search pakai API JSON terpisah (api.asurascans.com), beda
+        // dari asurascans.com yg dipakai fetchMangaInfo()/fetchChapterStep().
+        // CATATAN: field meta.total di response TIDAK bisa dipercaya (nilainya
+        // jauh lebih kecil drpd jumlah item aktual di data[] -- kemungkinan bug
+        // di API mereka atau field itu berarti lain). has_more krn itu dihitung
+        // heuristik: kalau jumlah item yg kembali == limit yg diminta, anggap
+        // masih ada halaman berikutnya.
+        $limit = 20;
+        $offset = ($page - 1) * $limit;
+        $url = "https://api.asurascans.com/api/series?search=" . urlencode($query)
+             . "&sort=latest&order=desc&limit=$limit&offset=$offset";
+
+        $raw = $this->httpGet($url);
+        $data = json_decode($raw, true);
+        if (!$data || !isset($data["data"]) || !is_array($data["data"])) {
+            throw new Exception("Response API AsuraScans search tidak valid: $url");
+        }
+
+        $items = [];
+        foreach ($data["data"] as $m) {
+            $latestChapter = null;
+            if (!empty($m["latest_chapters"][0]["number"])) {
+                $latestChapter = (float) $m["latest_chapters"][0]["number"];
+            }
+
+            // "slug" polos (BUKAN public_url) -- konsisten dgn fetchMangaInfo()/
+            // fetchChapterStep() yg sudah ada, yg merakit URL dari slug polos.
+            $items[] = [
+                "ref" => $m["slug"],
+                "title" => $m["title"],
+                "cover_image_url" => $m["cover"] ?? "",
+                "latest_chapter_number" => $latestChapter,
+                "rating" => is_numeric($m["rating"] ?? null) ? round((float) $m["rating"], 1) : null,
+            ];
+        }
+
+        return ["items" => $items, "has_more" => count($items) >= $limit];
+    }
 }
