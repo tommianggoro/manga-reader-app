@@ -396,15 +396,24 @@ $importError = $_GET["import_error"] ?? null;
         </button>
     </div>
 
-    <!-- Form Tambah Manga -->
-    <form class="row g-2 add-form mb-3" action="add_manga.php" method="GET" id="addMangaForm">
-        <div class="col-12 col-sm">
-            <input type="text" name="manga_id" id="mangaIdInput" class="form-control form-control-lg fs-6" placeholder="Tempel manga_id Shinigami (mis: solo-leveling) ATAU URL Komiku (https://komiku.org/manga/...)  untuk menambah/update..." required>
-        </div>
-        <div class="col-12 col-sm-auto">
-            <button type="submit" class="btn btn-primary btn-lg fs-6 w-100"><i class="bi bi-plus-lg"></i> Tambah / Update</button>
-        </div>
-    </form>
+    <div class="d-flex gap-2 mb-3">
+        <a href="search_manga.php" class="btn btn-primary btn-lg fs-6 flex-grow-1">
+            <i class="bi bi-search-heart me-1"></i> Cari & Tambah Manga
+        </a>
+        <button type="button" class="btn btn-outline-secondary btn-lg" data-bs-toggle="collapse" data-bs-target="#manualAddCollapse" title="Tambah manual via link/manga_id">
+            <i class="bi bi-link-45deg"></i>
+        </button>
+    </div>
+    <div class="collapse mb-3" id="manualAddCollapse">
+        <form class="row g-2 add-form" action="add_manga.php" method="GET" id="addMangaForm">
+            <div class="col-12 col-sm">
+                <input type="text" name="manga_id" id="mangaIdInput" class="form-control" placeholder="Tempel manga_id Shinigami ATAU URL Komiku/CosmicScans/AsuraScans..." required>
+            </div>
+            <div class="col-12 col-sm-auto">
+                <button type="submit" class="btn btn-outline-primary w-100"><i class="bi bi-plus-lg"></i> Tambah Manual</button>
+            </div>
+        </form>
+    </div>
 
     <!-- Search & View Mode Switcher -->
     <div class="row g-2 mb-3">

@@ -18,16 +18,30 @@ require_once "config.php";
 require_once "sync_functions.php";
 requireAuth();
 
-$rawInput = trim($_GET["manga_id"] ?? $_POST["manga_id"] ?? "");
-if ($rawInput === "") die("Input manga_id / URL wajib diisi.");
+$source = null; $sourceRef = null; $adapter = null;
 
-$detected = detectSourceFromInput($rawInput);
-if (!$detected) {
-    die("Input tidak dikenali sumbernya. Pastikan format manga_id Shinigami benar, atau tempel URL manga Komiku (https://komiku.org/manga/.../).");
+$paramSource = trim($_GET["source"] ?? $_POST["source"] ?? "");
+$paramRef = trim($_GET["source_ref"] ?? $_POST["source_ref"] ?? "");
+
+if ($paramSource !== "" && $paramRef !== "") {
+    // Datang dari search_manga.php -- source & ref sudah pasti, skip deteksi.
+    $adapter = getSource($paramSource);
+    if (!$adapter) die("Sumber tidak dikenali: " . htmlspecialchars($paramSource));
+    $source = $paramSource;
+    $sourceRef = $paramRef;
+} else {
+    // Jalur lama: paste manual manga_id/URL.
+    $rawInput = trim($_GET["manga_id"] ?? $_POST["manga_id"] ?? "");
+    if ($rawInput === "") die("Input manga_id / URL wajib diisi.");
+
+    $detected = detectSourceFromInput($rawInput);
+    if (!$detected) {
+        die("Input tidak dikenali sumbernya. Pastikan format manga_id Shinigami benar, atau tempel URL manga dari sumber yang didukung.");
+    }
+    $source = $detected["source"];
+    $sourceRef = $detected["ref"];
+    $adapter = $detected["adapter"];
 }
-$source = $detected["source"];
-$sourceRef = $detected["ref"];
-$adapter = $detected["adapter"];
 
 // Sudah pernah di-bind sebelumnya? Langsung resync, tidak perlu apa-apa lagi.
 $existingMangaId = findMangaBySource($pdo, $source, $sourceRef);
@@ -109,7 +123,8 @@ if (empty($similar)) {
     </p>
 
     <form method="POST" id="confirmForm">
-        <input type="hidden" name="manga_id" value="<?= htmlspecialchars($rawInput) ?>">
+        <input type="hidden" name="source" value="<?= htmlspecialchars($source) ?>">
+        <input type="hidden" name="source_ref" value="<?= htmlspecialchars($sourceRef) ?>">
         <input type="hidden" name="decision" id="decisionInput" value="">
         <input type="hidden" name="target_manga_id" id="targetMangaIdInput" value="">
 

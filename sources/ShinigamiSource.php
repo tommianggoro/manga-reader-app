@@ -27,26 +27,6 @@ class ShinigamiSource implements MangaSourceInterface
         return $input;
     }
 
-    private function apiGet(string $url): array
-    {
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (compatible; PersonalArchiveBot/1.0)");
-        curl_setopt($ch, CURLOPT_TIMEOUT, 20);
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        if ($httpCode !== 200 || !$response) {
-            throw new Exception("Gagal memanggil API Shinigami: $url (HTTP $httpCode)");
-        }
-        $data = json_decode($response, true);
-        if (!$data || $data["retcode"] !== 0) {
-            throw new Exception("Response API Shinigami tidak valid: $url");
-        }
-        return $data["data"];
-    }
-
     private function extractTaxonomyNames(array $taxonomy, string $key): string
     {
         if (!isset($taxonomy[$key]) || !is_array($taxonomy[$key])) return "";
@@ -88,5 +68,50 @@ class ShinigamiSource implements MangaSourceInterface
             "images" => $images,
             "prev_source_chapter_ref" => $chapterDetail["prev_chapter_id"] ?? null,
         ];
+    }
+
+    private function apiGetFull(string $url): array
+    {
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (compatible; PersonalArchiveBot/1.0)");
+        curl_setopt($ch, CURLOPT_TIMEOUT, 20);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode !== 200 || !$response) {
+            throw new Exception("Gagal memanggil API Shinigami: $url (HTTP $httpCode)");
+        }
+        $data = json_decode($response, true);
+        if (!$data || $data["retcode"] !== 0) {
+            throw new Exception("Response API Shinigami tidak valid: $url");
+        }
+        return $data; // termasuk 'data' & 'meta'
+    }
+
+    private function apiGet(string $url): array
+    {
+        return $this->apiGetFull($url)["data"];
+    }
+
+    public function search(string $query, int $page = 1): array
+    {
+        $pageSize = 20;
+        $full = $this->apiGetFull(self::API_BASE . "/manga/list?page=" . $page . "&page_size=" . $pageSize . "&q=" . urlencode($query));
+
+        $items = [];
+        foreach ($full["data"] as $m) {
+            $items[] = [
+                "ref" => $m["manga_id"],
+                "title" => $m["title"],
+                "cover_image_url" => !empty($m["cover_portrait_url"]) ? $m["cover_portrait_url"] : ($m["cover_image_url"] ?? ""),
+                "latest_chapter_number" => isset($m["latest_chapter_number"]) ? (float) $m["latest_chapter_number"] : null,
+                "rating" => is_numeric($m["user_rate"] ?? null) ? (float) $m["user_rate"] : null,
+            ];
+        }
+
+        $totalPage = (int) ($full["meta"]["total_page"] ?? 1);
+        return ["items" => $items, "has_more" => $page < $totalPage];
     }
 }

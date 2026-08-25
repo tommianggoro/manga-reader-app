@@ -276,4 +276,48 @@ class KomikuSource implements MangaSourceInterface
             "prev_source_chapter_ref" => $prevRef,
         ];
     }
+
+    public function search(string $query, int $page = 1): array
+    {
+        // Komiku TIDAK mendukung paging di endpoint search ini -- parameter
+        // &page= tidak berpengaruh & hasil yg dikembalikan SAMA setiap kali
+        // (terverifikasi manual). $page diterima tapi sengaja diabaikan.
+        $url = "https://api.komiku.org/?post_type=manga&s=" . urlencode($query);
+        $html = $this->httpGet($url);
+
+        $blocks = preg_split('/<div class="bge">/i', $html);
+        array_shift($blocks);
+
+        $items = [];
+        foreach ($blocks as $block) {
+            if (!preg_match('#href=["\']/manga/([a-z0-9\-]+)/?["\']#i', $block, $sm)) continue;
+            $slug = $sm[1];
+
+            $title = "";
+            if (preg_match('#<h3>(.*?)</h3>#is', $block, $tm)) {
+                $title = trim(html_entity_decode(strip_tags($tm[1]), ENT_QUOTES | ENT_HTML5));
+            }
+            if ($title === "") continue;
+
+            $cover = "";
+            if (preg_match('#<img[^>]+src=["\']([^"\']+)["\']#i', $block, $im)) {
+                $cover = html_entity_decode($im[1], ENT_QUOTES | ENT_HTML5);
+            }
+
+            $latestChapter = null;
+            if (preg_match('#<span>\s*Terbaru:?\s*</span>\s*<span>\s*Chapter\s*([\d.]+)\s*</span>#is', $block, $cm)) {
+                $latestChapter = (float) $cm[1];
+            }
+
+            $items[] = [
+                "ref" => $slug,
+                "title" => $title,
+                "cover_image_url" => $cover,
+                "latest_chapter_number" => $latestChapter,
+                "rating" => null,
+            ];
+        }
+
+        return ["items" => $items, "has_more" => false];
+    }
 }

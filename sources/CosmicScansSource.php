@@ -137,4 +137,29 @@ class CosmicScansSource implements MangaSourceInterface
             "prev_source_chapter_ref" => $prevRef,
         ];
     }
+
+    public function search(string $query, int $page = 1): array
+    {
+        // CosmicScans TIDAK mendukung paging di endpoint search ini -- semua
+        // hasil dikembalikan sekaligus dlm 1 request. $page diterima tapi
+        // sengaja diabaikan, parameter &page= TIDAK dikirim.
+        $data = $this->apiGet(self::API_BASE . "/manga/search?q=" . urlencode($query) . "&genres=");
+
+        $items = [];
+        foreach ($data as $m) {
+            $latestChapter = null;
+            if (!empty($m["chapters"][0]["chapterNum"])) {
+                $latestChapter = $this->parseChapterNumber($m["chapters"][0]["chapterNum"]);
+            }
+            $items[] = [
+                "ref" => $m["slug"],
+                "title" => $m["title"],
+                "cover_image_url" => $m["cover"] ?? "",
+                "latest_chapter_number" => $latestChapter,
+                "rating" => is_numeric($m["rating"] ?? null) ? (float) $m["rating"] : null,
+            ];
+        }
+
+        return ["items" => $items, "has_more" => false];
+    }
 }
