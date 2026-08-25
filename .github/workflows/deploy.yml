@@ -13,12 +13,12 @@ jobs:
     - name: Get latest code
       uses: actions/checkout@v6
 
-    - name: Deploy via SFTP
-      uses: wlixcc/SFTP-Deploy-Action@v1.2.4
+    - name: Sync files to InfinityFreeApp
+      uses: SamKirkland/FTP-Deploy-Action@v4.4.0
       with:
         server: ${{ secrets.FTP_SERVER }}
         username: ${{ secrets.FTP_USERNAME }}
         password: ${{ secrets.FTP_PASSWORD }}
-        local_path: './*'
-        remote_path: '/mangareader.infinityfreeapp.com/htdocs/'
+        local-dir: ./  # Folder asal (semua file di repo)
+        server-dir: ./mangareader.infinityfreeapp.com/htdocs/  # Folder tujuan di ProFreeHost (biasanya htdocs)
         
