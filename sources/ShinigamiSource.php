@@ -114,4 +114,21 @@ class ShinigamiSource implements MangaSourceInterface
         $totalPage = (int) ($full["meta"]["total_page"] ?? 1);
         return ["items" => $items, "has_more" => $page < $totalPage];
     }
+
+    public function getTrending(int $limit = 3): array
+    {
+        $full = $this->apiGetFull(self::API_BASE . "/manga/top?filter=daily&page=1&page_size=$limit");
+
+        $items = [];
+        foreach ($full["data"] as $m) {
+            $items[] = [
+                "ref" => $m["manga_id"],
+                "title" => $m["title"],
+                "cover_image_url" => !empty($m["cover_portrait_url"]) ? $m["cover_portrait_url"] : ($m["cover_image_url"] ?? ""),
+                "latest_chapter_number" => isset($m["latest_chapter_number"]) ? (float) $m["latest_chapter_number"] : null,
+                "rating" => is_numeric($m["user_rate"] ?? null) ? (float) $m["user_rate"] : null,
+            ];
+        }
+        return $items;
+    }
 }

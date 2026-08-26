@@ -68,4 +68,17 @@ interface MangaSourceInterface
      * ]
      */
     public function search(string $query): array;
+
+    /**
+     * Ambil daftar manga TRENDING/POPULER dari sumber ini, dipakai utk section
+     * "🔥 Trending" di index.php. HANYA dipanggil 1x/hari oleh cron_trending.php
+     * (bukan per-request user), jadi tidak masalah kalau agak lambat.
+     *
+     * Sama seperti search(): TIDAK BOLEH throw hanya krn hasil kosong (return []),
+     * BOLEH throw kalau request itu sendiri gagal -- ditangkap per-sumber di
+     * cron_trending.php, tidak menggagalkan sumber lain.
+     *
+     * Kembalikan array of: ['ref', 'title', 'cover_image_url', 'latest_chapter_number', 'rating']
+     */
+    public function getTrending(int $limit = 3): array;
 }

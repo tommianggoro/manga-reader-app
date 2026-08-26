@@ -1,0 +1,75 @@
+name: Manga Reader Trending Sync Cron
+
+on:
+  schedule:
+    - cron: '0 4 * * *'   # 1x/hari, sebelum manga_cron.yml (jam 05:00) supaya tidak tabrakan resource
+  workflow_dispatch:
+
+jobs:
+  sync-trending:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+
+      - name: Run Trending Cache Refresh
+        env:
+          CRON_SECRET_KEY: ${{ secrets.CRON_SECRET_KEY }}
+          SITE_URL: ${{ secrets.SITE_URL }}
+        run: |
+          python3 - <<'EOF'
+          import os
+          import sys
+          from playwright.sync_api import sync_playwright
+
+          site_url = os.environ["SITE_URL"].rstrip("/")
+          key = os.environ["CRON_SECRET_KEY"]
+          target_url = f"{site_url}/cron_trending.php?key={key}"
+
+          body_text = None
+          try:
+              with sync_playwright() as p:
+                  browser = p.chromium.launch()
+                  page = browser.new_page(
+                      user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+                  )
+                  page.goto(target_url, wait_until="networkidle", timeout=120000)
+                  page.wait_for_timeout(3000)
+                  body_text = page.inner_text("body")
+
+                  if body_text.strip().startswith("<") or "aes.js" in body_text:
+                      page.goto(target_url, wait_until="networkidle", timeout=120000)
+                      page.wait_for_timeout(3000)
+                      body_text = page.inner_text("body")
+                  browser.close()
+          except Exception as e:
+              print(f"❌ Gagal memuat halaman: {e}")
+              sys.exit(1)
+
+          print("Hasil Tanggapan Server:")
+          print(body_text)
+
+          if not body_text or not body_text.strip().startswith("{"):
+              print("❌ Respons bukan JSON valid (kemungkinan masih halaman challenge).")
+              sys.exit(1)
+
+          import json
+          try:
+              data = json.loads(body_text)
+          except json.JSONDecodeError as e:
+              print(f"❌ Gagal parse JSON: {e}")
+              sys.exit(1)
+
+          if not data.get("success"):
+              print(f"❌ Sync trending gagal: {data.get('error')}")
+              sys.exit(1)
+
+          print(f"✅ Total trending disimpan: {data.get('total_saved')}")
+          EOF

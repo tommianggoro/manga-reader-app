@@ -162,4 +162,26 @@ class CosmicScansSource implements MangaSourceInterface
 
         return ["items" => $items, "has_more" => false];
     }
+
+    
+    public function getTrending(int $limit = 3): array
+    {
+        $data = $this->apiGet(self::API_BASE . "/manga/popularToday?limit=$limit");
+
+        $items = [];
+        foreach (array_slice($data, 0, $limit) as $m) {
+            $latestChapter = null;
+            if (!empty($m["chapters"][0]["chapterNum"])) {
+                $latestChapter = $this->parseChapterNumber($m["chapters"][0]["chapterNum"]);
+            }
+            $items[] = [
+                "ref" => $m["slug"],
+                "title" => $m["title"] ?? "",
+                "cover_image_url" => $m["cover"] ?? "",
+                "latest_chapter_number" => $latestChapter,
+                "rating" => null, // endpoint popularToday tidak menyediakan skor rating
+            ];
+        }
+        return $items;
+    }
 }
