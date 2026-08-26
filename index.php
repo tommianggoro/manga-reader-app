@@ -2,6 +2,7 @@
 require_once "config.php";
 requireAuth();
 require_once "sources/SourceRegistry.php";
+require_once "sync_functions.php";
 
 $userId = currentUserId();
 
@@ -32,6 +33,30 @@ foreach ($mangas as $m) {
 }
 $allGenres = array_keys($allGenres);
 sort($allGenres);
+
+// ==== Trending / Panas (dibaca dari cache tabel trending_manga) ====
+$trendingRows = $pdo->query("SELECT * FROM trending_manga ORDER BY source ASC, rank_position ASC")->fetchAll();
+
+$trendingItems = [];      // flat list, dipakai utk tampilan Carousel
+$trendingBySource = [];   // grouped per sumber, dipakai utk tampilan Kolom
+foreach (array_keys(getAllSources()) as $key) {
+    $trendingBySource[$key] = [];
+}
+
+foreach ($trendingRows as $t) {
+    $item = [
+        'source' => $t['source'],
+        'source_ref' => $t['source_ref'],
+        'title' => $t['title'],
+        'cover_image_url' => $t['cover_image_url'],
+        'latest_chapter_number' => $t['latest_chapter_number'],
+        'rank_position' => (int) $t['rank_position'],
+        'manga_id' => findMangaBySource($pdo, $t['source'], $t['source_ref']),
+    ];
+    $trendingItems[] = $item;
+    $trendingBySource[$t['source']][] = $item;
+}
+$trendingBySource = array_filter($trendingBySource, fn($items) => !empty($items));
 
 $sourcesByManga = [];
 $srcRows = $pdo->query("SELECT manga_id, source FROM manga_sources")->fetchAll();
@@ -341,6 +366,78 @@ $importError = $_GET["import_error"] ?? null;
             .batch-action-bar { flex-wrap: wrap; justify-content: center; padding: 0.6rem 1rem; }
             .batch-action-bar .btn { min-height: 40px; }
         }
+
+        /* ==== Trending: shared ==== */
+        .trending-view-toggle .btn { width: 38px; }
+
+        /* ---- Carousel view ---- */
+        .trending-shelf-scroll {
+            overflow-x: auto; overflow-y: hidden; padding-bottom: 0.75rem; scrollbar-width: thin;
+        }
+        .trending-shelf-scroll::-webkit-scrollbar { height: 6px; }
+        .trending-shelf-scroll::-webkit-scrollbar-thumb { background: var(--bs-border-color); border-radius: 10px; }
+
+        .trending-card {
+            width: 148px; flex-shrink: 0; border-radius: 14px; overflow: hidden;
+            background: var(--bs-card-bg); border: 1px solid var(--bs-border-color);
+            transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+        }
+        .trending-card:hover { transform: translateY(-4px); border-color: var(--bs-primary); box-shadow: 0 10px 25px rgba(0,0,0,0.25); }
+
+        .trending-cover-wrap { position: relative; width: 100%; aspect-ratio: 2/3; background: var(--shimmer-bg-1); overflow: hidden; }
+        .trending-cover-wrap img { width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .35s ease, transform .3s ease; }
+        .trending-cover-wrap img.loaded { opacity: 1; }
+        .trending-card:hover .trending-cover-wrap img { transform: scale(1.05); }
+
+        .trending-rank {
+            position: absolute; top: 0; left: 8px; font-family: 'Bitter', Georgia, serif;
+            font-size: 2.6rem; font-weight: 700; line-height: 1; color: rgba(255,255,255,0.92);
+            -webkit-text-stroke: 1.5px rgba(16,19,26,0.9); text-shadow: 0 2px 10px rgba(0,0,0,0.6);
+            z-index: 2; pointer-events: none;
+        }
+        .trending-source-pill {
+            position: absolute; top: 8px; right: 8px; z-index: 2; font-size: 0.62rem; font-weight: 700;
+            padding: 0.2rem 0.55rem; border-radius: 50rem; background: rgba(16,19,26,0.75); backdrop-filter: blur(4px);
+            color: var(--bs-primary); border: 1px solid rgba(242,165,65,0.4); white-space: nowrap;
+        }
+        .trending-cover-overlay {
+            position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 1.75rem 0.6rem 0.5rem;
+            background: linear-gradient(to top, rgba(8,10,15,0.95) 10%, rgba(8,10,15,0.55) 60%, transparent 100%);
+        }
+        .trending-title {
+            font-size: 0.8rem; font-weight: 700; color: #fff; display: -webkit-box;
+            -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.25; margin-bottom: 0.3rem;
+        }
+        .trending-chapter-chip { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.68rem; font-weight: 600; color: #d8dbe6; }
+        .trending-card-footer { padding: 0.5rem; }
+
+        /* ---- Columns view ---- */
+        .trending-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
+        .trending-col { background: var(--bs-secondary-bg); border: 1px solid var(--bs-border-color); border-radius: 14px; overflow: hidden; }
+        .trending-col-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.7rem 1rem; background: var(--bs-tertiary-bg); border-bottom: 1px solid var(--bs-border-color); }
+        .trending-col-header .source-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bs-primary); flex-shrink: 0; }
+        .trending-col-header h3 { font-family: 'Bitter', Georgia, serif; font-size: 0.92rem; font-weight: 700; margin: 0; color: var(--bs-body-color); }
+
+        .trending-row { display: flex; align-items: center; gap: 0.65rem; padding: 0.55rem 1rem; border-bottom: 1px solid var(--bs-border-color); text-decoration: none; transition: background .15s ease; }
+        .trending-row:last-child { border-bottom: none; }
+        .trending-row:hover { background: var(--bs-tertiary-bg); }
+
+        .trending-rank-num { font-family: 'Bitter', Georgia, serif; font-size: 1.25rem; font-weight: 700; width: 22px; flex-shrink: 0; text-align: center; color: #7c8194; }
+        .trending-rank-num.top1 { color: var(--bs-primary); }
+        .trending-rank-num.top2 { color: #d8b46a; }
+        .trending-rank-num.top3 { color: #b98554; }
+
+        .trending-thumb { width: 40px; height: 56px; border-radius: 6px; object-fit: cover; flex-shrink: 0; background: var(--shimmer-bg-1); }
+        .trending-row-info { flex-grow: 1; min-width: 0; }
+        .trending-row-title { font-size: 0.8rem; font-weight: 600; color: var(--bs-body-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .trending-row-meta { font-size: 0.7rem; color: #7c8194; }
+        .trending-row-action .btn { width: 30px; height: 30px; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+
+        @media (max-width: 576px) {
+            .trending-card { width: 128px; }
+            .trending-rank { font-size: 2.1rem; }
+            .trending-columns { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
@@ -380,6 +477,98 @@ $importError = $_GET["import_error"] ?? null;
             </a>
         </div>
     </div>
+
+    <?php if (!empty($trendingItems)): ?>
+    <div class="mb-4">
+        <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+            <div class="d-flex align-items-baseline gap-2">
+                <h2 class="h5 brand-font mb-0"><i class="bi bi-fire text-danger me-1"></i> Trending Hari Ini</h2>
+                <span class="small text-secondary d-none d-sm-inline">diperbarui tiap hari dari <?= count($trendingBySource) ?> sumber</span>
+            </div>
+            <div class="btn-group trending-view-toggle" role="group" aria-label="Mode Tampilan Trending">
+                <button type="button" class="btn btn-outline-secondary active" id="trendingCarouselBtn" title="Tampilan Carousel">
+                    <i class="bi bi-images"></i>
+                </button>
+                <button type="button" class="btn btn-outline-secondary" id="trendingColumnsBtn" title="Tampilan Kolom per Sumber">
+                    <i class="bi bi-layout-three-columns"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mode: Carousel -->
+        <div id="trendingCarousel">
+            <div class="d-flex gap-3 trending-shelf-scroll">
+                <?php foreach ($trendingItems as $t): ?>
+                    <div class="trending-card">
+                        <div class="trending-cover-wrap skeleton-shimmer">
+                            <span class="trending-rank"><?= $t['rank_position'] ?></span>
+                            <span class="trending-source-pill"><?= htmlspecialchars($sourceLabels[$t['source']] ?? $t['source']) ?></span>
+                            <img src="<?= htmlspecialchars($t['cover_image_url']) ?>" alt="<?= htmlspecialchars($t['title']) ?>" loading="lazy"
+                                onload="this.classList.add('loaded'); this.parentElement.classList.remove('skeleton-shimmer');"
+                                onerror="this.style.opacity=0">
+                            <div class="trending-cover-overlay">
+                                <div class="trending-title" title="<?= htmlspecialchars($t['title']) ?>"><?= htmlspecialchars($t['title']) ?></div>
+                                <?php if ($t['latest_chapter_number']): ?>
+                                    <span class="trending-chapter-chip"><i class="bi bi-journal-text"></i> Ch. <?= htmlspecialchars(formatChapterNumber($t['latest_chapter_number'])) ?></span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <div class="trending-card-footer">
+                            <?php if ($t['manga_id']): ?>
+                                <a href="manga.php?manga_id=<?= urlencode($t['manga_id']) ?>" class="btn btn-outline-primary btn-sm w-100 fw-semibold">
+                                    <i class="bi bi-book me-1"></i> Buka
+                                </a>
+                            <?php else: ?>
+                                <a href="add_manga.php?source=<?= urlencode($t['source']) ?>&source_ref=<?= urlencode($t['source_ref']) ?>" class="btn btn-primary btn-sm w-100 fw-semibold">
+                                    <i class="bi bi-plus-lg me-1"></i> Tambahkan
+                                </a>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <!-- Mode: Kolom per Sumber -->
+        <div id="trendingColumnsWrap" style="display:none;">
+            <div class="trending-columns">
+                <?php foreach ($trendingBySource as $sourceKey => $items): ?>
+                    <div class="trending-col">
+                        <div class="trending-col-header">
+                            <span class="source-dot"></span>
+                            <h3><?= htmlspecialchars($sourceLabels[$sourceKey] ?? $sourceKey) ?></h3>
+                        </div>
+                        <?php foreach ($items as $t): ?>
+                            <?php
+                                $rankClass = $t['rank_position'] === 1 ? 'top1' : ($t['rank_position'] === 2 ? 'top2' : ($t['rank_position'] === 3 ? 'top3' : ''));
+                                $targetUrl = $t['manga_id']
+                                    ? "manga.php?manga_id=" . urlencode($t['manga_id'])
+                                    : "add_manga.php?source=" . urlencode($t['source']) . "&source_ref=" . urlencode($t['source_ref']);
+                            ?>
+                            <a href="<?= $targetUrl ?>" class="trending-row">
+                                <span class="trending-rank-num <?= $rankClass ?>"><?= $t['rank_position'] ?></span>
+                                <img class="trending-thumb" src="<?= htmlspecialchars($t['cover_image_url']) ?>" alt="" loading="lazy" onerror="this.style.opacity=0">
+                                <div class="trending-row-info">
+                                    <div class="trending-row-title" title="<?= htmlspecialchars($t['title']) ?>"><?= htmlspecialchars($t['title']) ?></div>
+                                    <div class="trending-row-meta">
+                                        <?php if ($t['latest_chapter_number']): ?>Ch. <?= htmlspecialchars(formatChapterNumber($t['latest_chapter_number'])) ?><?php endif; ?>
+                                    </div>
+                                </div>
+                                <span class="trending-row-action">
+                                    <?php if ($t['manga_id']): ?>
+                                        <span class="btn btn-outline-primary btn-sm" title="Buka"><i class="bi bi-book"></i></span>
+                                    <?php else: ?>
+                                        <span class="btn btn-primary btn-sm" title="Tambahkan"><i class="bi bi-plus-lg"></i></span>
+                                    <?php endif; ?>
+                                </span>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Statistik Bar -->
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
@@ -1017,6 +1206,27 @@ $importError = $_GET["import_error"] ?? null;
                 }
             }
         });
+    }
+
+    // Toggle Tampilan Trending: Carousel <-> Kolom per Sumber
+    const trendingCarouselBtn = document.getElementById("trendingCarouselBtn");
+    const trendingColumnsBtn = document.getElementById("trendingColumnsBtn");
+    const trendingCarousel = document.getElementById("trendingCarousel");
+    const trendingColumnsWrap = document.getElementById("trendingColumnsWrap");
+
+    function setTrendingViewMode(mode) {
+        localStorage.setItem("manga_trending_view", mode);
+        const isColumns = mode === "columns";
+        trendingCarousel.style.display = isColumns ? "none" : "block";
+        trendingColumnsWrap.style.display = isColumns ? "block" : "none";
+        trendingCarouselBtn.classList.toggle("active", !isColumns);
+        trendingColumnsBtn.classList.toggle("active", isColumns);
+    }
+
+    if (trendingCarouselBtn && trendingColumnsBtn) {
+        trendingCarouselBtn.addEventListener("click", () => setTrendingViewMode("carousel"));
+        trendingColumnsBtn.addEventListener("click", () => setTrendingViewMode("columns"));
+        setTrendingViewMode(localStorage.getItem("manga_trending_view") || "carousel");
     }
 </script>
 </body>

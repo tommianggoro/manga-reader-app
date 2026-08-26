@@ -296,4 +296,70 @@ class AsuraScansSource implements MangaSourceInterface
 
         return ["items" => $items, "has_more" => count($items) >= $limit];
     }
+
+    
+    public function getTrending(int $limit = 3): array
+    {
+        $html = $this->httpGet(self::BASE . "/");
+        $this->assertLooksLikeRealPage($html, self::BASE . "/");
+
+        // Batasi parsing ke section "Trending Comics" saja, hindari kebawa
+        // section lain (Latest Update, Popular, dst) yang markupnya mirip.
+        $trendingBlock = $this->sliceBetween($html, "Trending Comics", ["Latest Update", "Popular", "</footer>"]);
+
+        $slides = preg_split('#<div class="embla-trending__slide#i', $trendingBlock);
+        array_shift($slides);
+
+        $items = [];
+        foreach ($slides as $slide) {
+            if (count($items) >= $limit) break;
+
+            if (!preg_match('#href=["\']/comics/([a-z0-9\-]+)["\']#i', $slide, $sm)) continue;
+            $slug = $sm[1];
+
+            $cover = "";
+            if (preg_match('#<img[^>]+src=["\'](https://cdn\.asurascans\.com/asura-images/covers/[^"\']+)["\']#i', $slide, $im)) {
+                $cover = $im[1];
+            }
+
+            $title = "";
+            if (preg_match('#font-bold text-white[^>]*>([^<]+)</span>#i', $slide, $tm)) {
+                $title = trim(html_entity_decode($tm[1], ENT_QUOTES | ENT_HTML5));
+            }
+            if ($title === "") continue;
+
+            $latestChapter = null;
+            if (preg_match('#Chapter\s*(?:<!--\s*-->)?\s*([\d.]+)#i', $slide, $cm)) {
+                $latestChapter = (float) $cm[1];
+            }
+
+            $rating = null;
+            if (preg_match('~ml-1 text-xs text-\[#999\][^>]*>\s*([\d.]+)\s*<~i', $slide, $rm)) {
+                $rating = (float) $rm[1];
+            }
+
+            $items[] = [
+                "ref" => $slug,
+                "title" => $title,
+                "cover_image_url" => $cover,
+                "latest_chapter_number" => $latestChapter,
+                "rating" => $rating,
+            ];
+        }
+        return $items;
+    }
+
+    /** Ambil substring HTML di antara dua penanda teks (dipakai utk membatasi area parsing). */
+    private function sliceBetween(string $html, string $startMarker, array $endMarkers): string
+    {
+        $startPos = stripos($html, $startMarker);
+        if ($startPos === false) return $html; // fallback: parse seluruh halaman kalau marker tak ketemu
+
+        $endPos = strlen($html);
+        foreach ($endMarkers as $marker) {
+            $p = stripos($html, $marker, $startPos);
+            if ($p !== false && $p < $endPos) $endPos = $p;
+        }
+        return substr($html, $startPos, $endPos - $startPos);
+    }
 }

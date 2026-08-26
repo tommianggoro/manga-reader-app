@@ -320,4 +320,49 @@ class KomikuSource implements MangaSourceInterface
 
         return ["items" => $items, "has_more" => false];
     }
+
+    public function getTrending(int $limit = 3): array
+    {
+        $html = $this->httpGet(self::BASE . "/");
+        $this->assertLooksLikeRealPage($html, self::BASE . "/");
+
+        $rankBlock = $this->sliceBetween($html, 'id="rank-harian"', ['id="rank-mingguan"', 'id="rank-bulanan"', '</body>']);
+
+        $articles = preg_split('#<article class="ls4">#i', $rankBlock);
+        array_shift($articles);
+
+        $items = [];
+        foreach ($articles as $block) {
+            if (count($items) >= $limit) break;
+
+            if (!preg_match('#href=["\']/manga/([a-z0-9\-]+)/?["\']#i', $block, $sm)) continue;
+            $slug = $sm[1];
+
+            $title = "";
+            if (preg_match('#<h4>\s*<a[^>]*>(.*?)</a>#is', $block, $tm)) {
+                $title = trim(html_entity_decode(strip_tags($tm[1]), ENT_QUOTES | ENT_HTML5));
+            }
+            if ($title === "") continue;
+
+            // Prioritaskan data-src (URL thumbnail asli) drpd src (bisa placeholder "lazy.jpg")
+            $cover = "";
+            if (preg_match('#data-src=["\']([^"\']+)["\']#i', $block, $im)) {
+                $cover = html_entity_decode($im[1], ENT_QUOTES | ENT_HTML5);
+            }
+
+            $latestChapter = null;
+            if (preg_match('#class="ls24"[^>]*>\s*Chapter\s*([\d.]+)\s*<#i', $block, $cm)) {
+                $latestChapter = (float) $cm[1];
+            }
+
+            $items[] = [
+                "ref" => $slug,
+                "title" => $title,
+                "cover_image_url" => $cover,
+                "latest_chapter_number" => $latestChapter,
+                "rating" => null, // Komiku tidak menampilkan skor rating di rank-panel
+            ];
+        }
+        return $items;
+    }
 }
