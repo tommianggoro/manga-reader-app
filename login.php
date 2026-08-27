@@ -11,7 +11,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && !$lockedUntil) {
     $username = trim($_POST["username"] ?? "");
     $password = $_POST["password"] ?? "";
 
-    $stmt = $pdo->prepare("SELECT id, username, password_hash FROM users WHERE username = :u");
+    $stmt = $pdo->prepare("SELECT id, username, password_hash, is_admin, profile_photo_url FROM users WHERE username = :u");
     $stmt->execute([":u" => $username]);
     $user = $stmt->fetch();
 
@@ -22,8 +22,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && !$lockedUntil) {
         session_regenerate_id(true);
         $_SESSION["user_id"] = (int) $user["id"];
         $_SESSION["username"] = $user["username"];
+        $_SESSION["is_admin"] = (bool) $user["is_admin"];
+        $_SESSION["profile_photo_url"] = $user["profile_photo_url"];
 
-        header("Location: index.php");
+        $redirectTo = $_GET["redirect"] ?? "index.php";
+        // Cegah open redirect: hanya izinkan path relatif internal (.php), bukan URL luar.
+        if (!preg_match('/^[a-zA-Z0-9_\-]+\.php(\?.*)?$/', $redirectTo)) {
+            $redirectTo = "index.php";
+        }
+        header("Location: " . $redirectTo);
         exit;
     } else {
         $attempts = recordFailedLogin($pdo, $ip);
@@ -92,7 +99,7 @@ if ($lockedUntil) {
     <div class="auth-card">
         <div class="auth-icon"><i class="bi bi-book-half"></i></div>
         <h2 class="brand-font h4 text-center mb-1">Manga Reader</h2>
-        <p class="text-secondary text-center small mb-4">Masuk ke koleksi pribadi Anda</p>
+        <p class="text-secondary text-center small mb-4">Masuk untuk bookmark & simpan progres baca</p>
 
         <?php if ($error): ?><div class="alert alert-danger py-2 small"><?= htmlspecialchars($error) ?></div><?php endif; ?>
 
@@ -112,6 +119,9 @@ if ($lockedUntil) {
 
         <p class="text-center small text-secondary mt-3 mb-0">
             Belum punya akun? <a href="register.php">Daftar di sini</a>
+        </p>
+        <p class="text-center small mt-1 mb-0">
+            <a href="index.php" class="text-secondary"><i class="bi bi-arrow-left me-1"></i>Jelajahi dulu sebagai tamu</a>
         </p>
     </div>
 </body>

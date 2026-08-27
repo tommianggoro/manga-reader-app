@@ -1,6 +1,6 @@
 <?php
 require_once "config.php";
-requireAuth();
+requireAdmin();
 
 if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_FILES["backup_file"])) {
     try {

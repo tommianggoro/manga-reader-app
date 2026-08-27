@@ -1,7 +1,7 @@
 <?php
 require_once "config.php";
 require_once "sync_functions.php";
-requireAuth();
+requireAdmin();
 
 $mangaId = $_GET["manga_id"] ?? die("manga_id wajib diisi");
 

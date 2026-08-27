@@ -14,6 +14,8 @@
 # Konfigurasi lokal (jangan pernah commit kredensial database/secret)
 .env
 !.env.example
+assets/avatars/*
+!assets/avatars/.gitkeep
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

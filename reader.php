@@ -1,6 +1,6 @@
 <?php
 require_once "config.php";
-requireAuth();
+optionalAuth();
 
 $chapterId = $_GET["chapter_id"] ?? die("chapter_id wajib diisi");
 
@@ -13,28 +13,33 @@ $stmt = $pdo->prepare("SELECT * FROM mangas WHERE manga_id = :id");
 $stmt->execute([":id" => $chapter["manga_id"]]);
 $manga = $stmt->fetch();
 
-$userId = currentUserId();
+$userId = currentUserId(); // null kalau guest
 
-// Ambil posisi baca terakhir chapter ini khusus untuk user yang login
-$stmt = $pdo->prepare("SELECT scroll_position, single_page_index FROM reading_progress WHERE user_id = :uid AND chapter_id = :cid");
-$stmt->execute([":uid" => $userId, ":cid" => $chapterId]);
-$savedProgress = $stmt->fetch();
+// Ambil posisi baca terakhir chapter ini dari DB HANYA kalau login. Guest
+// mengandalkan localStorage sepenuhnya (dibaca lewat JS di bawah).
+$savedProgress = null;
+if ($userId) {
+    $stmt = $pdo->prepare("SELECT scroll_position, single_page_index FROM reading_progress WHERE user_id = :uid AND chapter_id = :cid");
+    $stmt->execute([":uid" => $userId, ":cid" => $chapterId]);
+    $savedProgress = $stmt->fetch();
 
-// Tandai chapter ini sebagai yang terakhir dibaca, khusus untuk user ini
-$stmt = $pdo->prepare("
-    INSERT INTO user_manga_state (user_id, manga_id, last_read_chapter_id, last_read_chapter_number, last_read_at)
-    VALUES (:uid, :mid, :cid, :cnum, NOW())
-    ON DUPLICATE KEY UPDATE
-        last_read_chapter_id = VALUES(last_read_chapter_id),
-        last_read_chapter_number = VALUES(last_read_chapter_number),
-        last_read_at = VALUES(last_read_at)
-");
-$stmt->execute([
-    ":uid" => $userId,
-    ":mid" => $chapter["manga_id"],
-    ":cid" => $chapter["chapter_id"],
-    ":cnum" => $chapter["chapter_number"],
-]);
+    // Tandai chapter ini sebagai yang terakhir dibaca -- HANYA utk user yang
+    // login (guest ditandai via localStorage lewat JS, lihat di bawah).
+    $stmt = $pdo->prepare("
+        INSERT INTO user_manga_state (user_id, manga_id, last_read_chapter_id, last_read_chapter_number, last_read_at)
+        VALUES (:uid, :mid, :cid, :cnum, NOW())
+        ON DUPLICATE KEY UPDATE
+            last_read_chapter_id = VALUES(last_read_chapter_id),
+            last_read_chapter_number = VALUES(last_read_chapter_number),
+            last_read_at = VALUES(last_read_at)
+    ");
+    $stmt->execute([
+        ":uid" => $userId,
+        ":mid" => $chapter["manga_id"],
+        ":cid" => $chapter["chapter_id"],
+        ":cnum" => $chapter["chapter_number"],
+    ]);
+}
 
 $stmt = $pdo->prepare("SELECT * FROM chapter_images WHERE chapter_id = :id ORDER BY page_number ASC");
 $stmt->execute([":id" => $chapterId]);
@@ -230,6 +235,13 @@ $allChapters = $stmt->fetchAll();
             cursor: default;
         }
 
+        /* Guest Notice Banner */
+        .guest-notice {
+            max-width: 700px; margin: 0 auto 1rem; background: var(--topbar-bg);
+            border: 1px solid var(--bs-primary); border-radius: 12px; padding: 0.75rem 1rem;
+            font-size: 0.82rem; display: flex; align-items: center; gap: 0.6rem;
+        }
+
         /* Toast Hint */
         .shortcut-toast {
             position: fixed; bottom: 80px; right: 20px; z-index: 1050;
@@ -270,9 +282,15 @@ $allChapters = $stmt->fetchAll();
             <button type="button" class="theme-toggle-btn" id="themeToggle" title="Ganti Mode Gelap/Terang">
                 <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
             </button>
-            <a href="logout.php" class="theme-toggle-btn" title="Keluar (<?= htmlspecialchars(currentUsername()) ?>)">
-                <i class="bi bi-box-arrow-right"></i>
-            </a>
+            <?php if ($userId): ?>
+                <a href="logout.php" class="theme-toggle-btn" title="Keluar (<?= htmlspecialchars(currentUsername()) ?>)">
+                    <i class="bi bi-box-arrow-right"></i>
+                </a>
+            <?php else: ?>
+                <a href="login.php" class="theme-toggle-btn" title="Login">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                </a>
+            <?php endif; ?>
         </div>
     </nav>
 
@@ -286,6 +304,13 @@ $allChapters = $stmt->fetchAll();
             <span class="d-none d-sm-inline me-1">Halaman Selanjutnya</span><i class="bi bi-chevron-right"></i>
         </button>
     </div>
+
+    <?php if (!$userId): ?>
+        <div class="guest-notice px-3">
+            <i class="bi bi-info-circle text-primary"></i>
+            <span>Progres bacamu disimpan di perangkat ini saja. <a href="login.php">Login</a> supaya tersimpan ke akun & bisa dilanjut dari perangkat lain.</span>
+        </div>
+    <?php endif; ?>
 
     <!-- Reader Container -->
     <div class="reader d-flex flex-column align-items-center" id="readerContainer">
@@ -527,6 +552,86 @@ $allChapters = $stmt->fetchAll();
             }
         }
 
+        // ==========================================
+        // LOGIKA SIMPAN & PULIHKAN POSISI BACA
+        // ==========================================
+        // Login  -> sumber kebenaran DB (savedScrollPosition/savedSinglePageIndex dari
+        //           PHP), TAPI tetap ditulis JUGA ke localStorage tiap update (dual-write,
+        //           sesuai keputusan produk: biar reader tetap responsif meski network
+        //           lambat & sbg fallback offline-ish).
+        // Guest  -> HANYA localStorage, tidak ada request ke server sama sekali.
+        const isLoggedIn = <?= $userId ? 'true' : 'false' ?>;
+        const currentMangaId = <?= json_encode($manga['manga_id']) ?>;
+        const currentChapterId = <?= json_encode($chapter['chapter_id']) ?>;
+        const currentChapterNumber = <?= json_encode((float) $chapter['chapter_number']) ?>;
+
+        const LS_PROGRESS_PREFIX = "manga_progress:"; // + chapter_id -> {scroll, page}
+        const LS_LASTREAD_PREFIX = "manga_last_read:"; // + manga_id -> {chapter_id, chapter_number}
+
+        function readLocalProgress(chapterId) {
+            try {
+                const raw = localStorage.getItem(LS_PROGRESS_PREFIX + chapterId);
+                return raw ? JSON.parse(raw) : null;
+            } catch (e) { return null; }
+        }
+
+        function writeLocalProgress(chapterId, scrollPosition, singlePageIndex) {
+            try {
+                const existing = readLocalProgress(chapterId) || {};
+                const merged = {
+                    scroll: scrollPosition !== null ? scrollPosition : (existing.scroll ?? null),
+                    page: singlePageIndex !== null ? singlePageIndex : (existing.page ?? null),
+                };
+                localStorage.setItem(LS_PROGRESS_PREFIX + chapterId, JSON.stringify(merged));
+            } catch (e) { /* localStorage penuh/nonaktif, diamkan */ }
+        }
+
+        function writeLocalLastRead(mangaId, chapterId, chapterNumber) {
+            try {
+                localStorage.setItem(LS_LASTREAD_PREFIX + mangaId, JSON.stringify({
+                    chapter_id: chapterId, chapter_number: chapterNumber, at: Date.now(),
+                }));
+            } catch (e) { /* diamkan */ }
+        }
+
+        // Tandai chapter ini sbg terakhir dibaca utk manga ini (localStorage, semua
+        // status login -- utk login, server-side sudah menandai lewat DB di reader.php,
+        // tapi kita tetap tulis localStorage juga sbg cache ringan utk manga.php).
+        writeLocalLastRead(currentMangaId, currentChapterId, currentChapterNumber);
+
+        async function saveReadProgress(scrollPosition, singlePageIndex) {
+            // Selalu simpan ke localStorage duluan -- ini yg membuat reader tetap
+            // responsif utk SEMUA orang (login maupun guest), instan tanpa network.
+            writeLocalProgress(currentChapterId, scrollPosition, singlePageIndex);
+
+            if (!isLoggedIn) return; // guest berhenti di localStorage saja
+
+            try {
+                await fetch("save_progress.php", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: `chapter_id=${encodeURIComponent(currentChapterId)}` +
+                        `&scroll_position=${scrollPosition === null ? "" : scrollPosition}` +
+                        `&single_page_index=${singlePageIndex === null ? "" : singlePageIndex}`,
+                });
+            } catch (err) { /* tidak kritikal, diamkan */ }
+        }
+
+        // Posisi tersimpan: kalau login pakai dari DB (server-render PHP), kalau guest
+        // dari localStorage. Kalau login TAPI DB kosong (mis. baru pindah device),
+        // fallback ke localStorage juga supaya tidak "lupa" posisi terakhir di device ini.
+        <?php if ($userId): ?>
+        const dbScrollPosition = <?= ($savedProgress && $savedProgress['scroll_position'] !== null) ? (int)$savedProgress['scroll_position'] : 'null' ?>;
+        const dbSinglePageIndex = <?= ($savedProgress && $savedProgress['single_page_index'] !== null) ? (int)$savedProgress['single_page_index'] : 'null' ?>;
+        const localFallback = readLocalProgress(currentChapterId);
+        const savedScrollPosition = dbScrollPosition !== null ? dbScrollPosition : (localFallback ? localFallback.scroll : null);
+        const savedSinglePageIndex = dbSinglePageIndex !== null ? dbSinglePageIndex : (localFallback ? localFallback.page : null);
+        <?php else: ?>
+        const localOnly = readLocalProgress(currentChapterId);
+        const savedScrollPosition = localOnly ? localOnly.scroll : null;
+        const savedSinglePageIndex = localOnly ? localOnly.page : null;
+        <?php endif; ?>
+
         applyReaderSettings();
 
         // Reading Progress Bar Indicator
@@ -548,19 +653,10 @@ $allChapters = $stmt->fetchAll();
         updateProgressBar();
 
         // Immersive Reading Mode
-        // -----------------------
-        // Pola A (scroll-direction): scroll ke bawah -> hide UI, scroll ke atas -> show UI,
-        //   dan selalu tampil saat dekat ujung atas/bawah chapter. Ini perilaku utama,
-        //   cocok untuk reading kontinu di mode Webtoon.
-        // Pola B (tap/klik toggle instan): tap atau klik satu kali di area gambar chapter
-        //   akan toggle tampil/sembunyi UI secara langsung, kapan pun, terlepas dari arah
-        //   scroll -- ini override manual, dipakai baik di mobile (touch) maupun desktop
-        //   (mouse click), supaya user bisa munculkan/hilangkan navigasi kapan saja tanpa
-        //   perlu scroll dulu. Tidak ada delay/idle-timer; responsif instan.
         (function () {
             let lastScrollY = window.scrollY;
-            const SCROLL_THRESHOLD = 10; // px, biar tidak ke-trigger getaran scroll kecil
-            const EDGE_ZONE = 120; // px, jarak dari atas/bawah yang selalu memaksa UI tampil
+            const SCROLL_THRESHOLD = 10;
+            const EDGE_ZONE = 120;
 
             function hideUI() { document.body.classList.add("reader-hide-ui"); }
             function showUI() { document.body.classList.remove("reader-hide-ui"); }
@@ -572,7 +668,6 @@ $allChapters = $stmt->fetchAll();
                 const scrollBottom = document.documentElement.scrollHeight - window.innerHeight - currentScrollY;
 
                 if (currentScrollY < EDGE_ZONE || scrollBottom < EDGE_ZONE) {
-                    // Dekat paling atas atau paling bawah chapter -> selalu tampilkan UI
                     showUI();
                 } else if (Math.abs(delta) > SCROLL_THRESHOLD) {
                     if (delta > 0) hideUI(); else showUI();
@@ -581,11 +676,9 @@ $allChapters = $stmt->fetchAll();
                 lastScrollY = currentScrollY;
             }, { passive: true });
 
-            // Tap sekali di gambar chapter (mobile) -> toggle tampil/sembunyi UI.
-            // Dibedakan dari swipe/scroll dengan mengecek jarak pergerakan jari.
             let touchStartX = 0, touchStartY = 0;
             let wasTouchInteraction = false;
-            const TAP_MOVE_TOLERANCE = 10; // px
+            const TAP_MOVE_TOLERANCE = 10;
 
             readerContainer.addEventListener("touchstart", (e) => {
                 const t = e.touches[0];
@@ -594,7 +687,6 @@ $allChapters = $stmt->fetchAll();
             }, { passive: true });
 
             readerContainer.addEventListener("touchend", (e) => {
-                // Jangan toggle kalau tap kena elemen interaktif (tombol reload gambar, dll)
                 if (e.target.closest("button, a, .image-error-card, .single-page-controls")) return;
 
                 const t = e.changedTouches[0];
@@ -604,14 +696,10 @@ $allChapters = $stmt->fetchAll();
                 if (movedX < TAP_MOVE_TOLERANCE && movedY < TAP_MOVE_TOLERANCE) {
                     wasTouchInteraction = true;
                     toggleUI();
-                    // reset flag di frame berikutnya, supaya event "click" bawaan browser
-                    // yang biasanya menyusul setelah touchend tidak ikut men-toggle lagi (double toggle)
                     setTimeout(() => { wasTouchInteraction = false; }, 400);
                 }
             });
 
-            // Klik untuk desktop/mouse -> toggle tampil/sembunyi UI.
-            // Di-skip kalau baru saja ditangani oleh touchend (hindari double-toggle di device touch).
             readerContainer.addEventListener("click", (e) => {
                 if (wasTouchInteraction) return;
                 if (e.target.closest("button, a, .image-error-card, .single-page-controls")) return;
@@ -676,25 +764,6 @@ $allChapters = $stmt->fetchAll();
                     nextChapterImageUrls.forEach(url => { const img = new Image(); img.src = url; });
                 }, 1000);
             });
-        }
-
-        // ==========================================
-        // LOGIKA SIMPAN & PULIHKAN POSISI BACA (SCROLL)
-        // ==========================================
-        const currentChapterId = <?= json_encode($chapter['chapter_id']) ?>;
-        const savedScrollPosition = <?= ($savedProgress && $savedProgress['scroll_position'] !== null) ? (int)$savedProgress['scroll_position'] : 'null' ?>;
-        const savedSinglePageIndex = <?= ($savedProgress && $savedProgress['single_page_index'] !== null) ? (int)$savedProgress['single_page_index'] : 'null' ?>;
-
-        async function saveReadProgress(scrollPosition, singlePageIndex) {
-            try {
-                await fetch("save_progress.php", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                    body: `chapter_id=${encodeURIComponent(currentChapterId)}` +
-                        `&scroll_position=${scrollPosition === null ? "" : scrollPosition}` +
-                        `&single_page_index=${singlePageIndex === null ? "" : singlePageIndex}`,
-                });
-            } catch (err) { /* tidak kritikal, diamkan */ }
         }
 
         // 1. Pulihkan posisi scroll (mode Webtoon) saat halaman selesai dimuat

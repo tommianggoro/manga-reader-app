@@ -1,6 +1,6 @@
 <?php
 require_once "config.php";
-requireAuth();
+requireAdmin();
 
 header("Content-Type: application/json; charset=utf-8");
 

@@ -5,6 +5,8 @@
  * polos (Shinigami) ATAU URL lengkap (mis. Komiku) -- dideteksi otomatis lewat
  * SourceRegistry::detectSourceFromInput().
  *
+ * ADMIN-ONLY: manage koleksi (tambah/update manga) hanya utk admin.
+ *
  * Alur:
  *  - Kalau (source, source_ref) SUDAH terhubung ke manga tertentu -> langsung
  *    lanjut ke crawl.php (cuma resync), tidak perlu konfirmasi apapun.
@@ -16,7 +18,7 @@
 
 require_once "config.php";
 require_once "sync_functions.php";
-requireAuth();
+requireAdmin();
 
 $source = null; $sourceRef = null; $adapter = null;
 

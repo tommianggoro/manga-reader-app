@@ -5,6 +5,8 @@
  * REQUEST oleh JavaScript di crawl.php & crawl_all.php (supaya tidak kena
  * batas max_execution_time dan progress bisa ditampilkan).
  *
+ * ADMIN-ONLY: sync/update data manga hanya utk admin.
+ *
  * Params tambahan dibanding versi lama: `source` (mis. "shngm" / "komiku") dan
  * `source_ref` (ID/slug manga DI SUMBER itu, beda dari manga_id internal).
  *
@@ -14,7 +16,7 @@
 
 require_once "config.php";
 require_once "sync_functions.php";
-requireAuth();
+requireAdmin();
 
 header("Content-Type: application/json; charset=utf-8");
 

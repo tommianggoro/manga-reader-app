@@ -1,7 +1,7 @@
 <?php
 require_once "config.php";
 require_once "sync_functions.php";
-requireAuth();
+requireAdmin();
 
 header("Content-Type: application/json; charset=utf-8");
 

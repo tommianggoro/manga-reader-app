@@ -1,6 +1,6 @@
 <?php
 require_once "config.php";
-requireAuth();
+requireAdmin();
 ?>
 <!DOCTYPE html>
 <html lang="id" data-bs-theme="dark">
@@ -153,16 +153,11 @@ requireAuth();
             skeletonCards();
             loadMoreWrap.style.display = "none";
         }
-        // Saat append (Load More), loadMoreWrap TIDAK disembunyikan di sini --
-        // tombolnya sendiri yg mengatur state loading (disabled + spinner) lewat
-        // event listener di bawah, supaya spinner tetap terlihat user.
 
         searchStatus.innerHTML = `<span class="spinner-border spinner-border-sm text-primary me-1"></span> Mencari...`;
 
         try {
             let url = `search_manga_api.php?q=${encodeURIComponent(query)}&page=${page}`;
-            // Load More: hanya query ulang sumber yg masih punya halaman berikutnya,
-            // supaya sumber tanpa paging (Komiku/CosmicScans) tidak dikembalikan lagi.
             if (append && sourcesWithMore.size > 0) {
                 url += `&sources=${encodeURIComponent(Array.from(sourcesWithMore).join(","))}`;
             }

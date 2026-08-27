@@ -1,9 +1,9 @@
 <?php
 require_once "config.php";
-requireAuth();
+optionalAuth();
 
 $mangaId = $_GET["manga_id"] ?? die("manga_id wajib diisi");
-$userId = currentUserId();
+$userId = currentUserId(); // null kalau guest
 
 $stmt = $pdo->prepare("
     SELECT m.*, COALESCE(s.is_favorite, 0) AS is_favorite,
@@ -35,6 +35,8 @@ function formatTanggalIndo($datetime) {
     $ts = strtotime($datetime);
     return date("j", $ts) . " " . $bulan[(int) date("n", $ts) - 1] . " " . date("Y", $ts);
 }
+
+$redirectAfterLogin = "manga.php?manga_id=" . urlencode($mangaId);
 ?>
 <!DOCTYPE html>
 <html lang="id" data-bs-theme="dark">
@@ -163,15 +165,23 @@ function formatTanggalIndo($datetime) {
             <i class="bi bi-arrow-left"></i> Kembali ke koleksi
         </a>
         <div class="d-flex align-items-center gap-2">
+            <?php if (isAdmin()): ?>
             <button type="button" class="btn btn-outline-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteMangaModal" title="Hapus Manga Ini">
                 <i class="bi bi-trash3 me-1"></i> <span class="d-none d-sm-inline">Hapus Manga</span>
             </button>
+            <?php endif; ?>
             <button type="button" class="theme-toggle-btn" id="themeToggle" title="Ganti Mode Gelap/Terang">
                 <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
             </button>
-            <a href="logout.php" class="theme-toggle-btn" title="Keluar (<?= htmlspecialchars(currentUsername()) ?>)">
-                <i class="bi bi-box-arrow-right"></i>
-            </a>
+            <?php if ($userId): ?>
+                <a href="logout.php" class="theme-toggle-btn" title="Keluar (<?= htmlspecialchars(currentUsername()) ?>)">
+                    <i class="bi bi-box-arrow-right"></i>
+                </a>
+            <?php else: ?>
+                <a href="login.php?redirect=<?= urlencode($redirectAfterLogin) ?>" class="theme-toggle-btn" title="Login">
+                    <i class="bi bi-box-arrow-in-right"></i>
+                </a>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -212,22 +222,27 @@ function formatTanggalIndo($datetime) {
     <?php endif; ?>
 
     <!-- Action Buttons (Resume/Start/Update) -->
-    <div class="d-flex flex-wrap align-items-center gap-2 mb-4 p-3 rounded-3 action-buttons-row" style="background: var(--bs-secondary-bg); border: 1px solid var(--bs-border-color);">
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-4 p-3 rounded-3 action-buttons-row" style="background: var(--bs-secondary-bg); border: 1px solid var(--bs-border-color);" id="actionButtonsRow">
         <?php if ($firstChapter): ?>
-            <?php if (!empty($manga['last_read_chapter_id'])): ?>
-                <a class="btn btn-primary fw-semibold px-3" href="reader.php?chapter_id=<?= urlencode($manga['last_read_chapter_id']) ?>">
-                    <i class="bi bi-play-fill fs-5 me-1"></i> Lanjutkan Chapter <?= (float) $manga['last_read_chapter_number'] ?>
+            <?php if ($userId && !empty($manga['last_read_chapter_id'])): ?>
+                <a class="btn btn-primary fw-semibold px-3" id="resumeBtn" href="reader.php?chapter_id=<?= urlencode($manga['last_read_chapter_id']) ?>">
+                    <i class="bi bi-play-fill fs-5 me-1"></i> <span id="resumeBtnText">Lanjutkan Chapter <?= (float) $manga['last_read_chapter_number'] ?></span>
                 </a>
                 <a class="btn btn-outline-secondary px-3" href="reader.php?chapter_id=<?= urlencode($firstChapter['chapter_id']) ?>">
                     <i class="bi bi-book me-1"></i> Baca dari Awal
                 </a>
             <?php else: ?>
-                <a class="btn btn-primary fw-semibold px-4" href="reader.php?chapter_id=<?= urlencode($firstChapter['chapter_id']) ?>">
-                    <i class="bi bi-book me-1"></i> Mulai Baca dari Awal
+                <!-- Guest (atau user login tanpa histori DB): tombol default "mulai dari awal",
+                     akan DIGANTI oleh JS jadi "Lanjutkan" kalau localStorage punya histori utk manga ini. -->
+                <a class="btn btn-primary fw-semibold px-4" id="resumeBtn" href="reader.php?chapter_id=<?= urlencode($firstChapter['chapter_id']) ?>">
+                    <i class="bi bi-book me-1"></i> <span id="resumeBtnText">Mulai Baca dari Awal</span>
+                </a>
+                <a class="btn btn-outline-secondary px-3 d-none" id="startOverBtn" href="reader.php?chapter_id=<?= urlencode($firstChapter['chapter_id']) ?>">
+                    <i class="bi bi-book me-1"></i> Baca dari Awal
                 </a>
             <?php endif; ?>
         <?php endif; ?>
-        <?php if (count($mangaSourceBindings) > 1): ?>
+        <?php if (isAdmin() && count($mangaSourceBindings) > 1): ?>
         <select class="form-select form-select-sm ms-auto" style="max-width: 220px;" id="preferredSourceSelect">
             <option value="">Sumber Prioritas: Otomatis</option>
             <?php foreach ($mangaSourceBindings as $b): ?>
@@ -237,9 +252,11 @@ function formatTanggalIndo($datetime) {
             <?php endforeach; ?>
         </select>
         <?php endif; ?>
+        <?php if (isAdmin()): ?>
         <a class="btn btn-outline-warning <?= count($mangaSourceBindings) > 1 ? '' : 'ms-auto' ?>" href="crawl.php?manga_id=<?= urlencode($manga['manga_id']) ?>" target="_blank" title="Cek & Sync Chapter Baru">
             <i class="bi bi-arrow-repeat me-1"></i> Update / Sync Chapter (<?= count($mangaSourceBindings) ?> sumber)
         </a>
+        <?php endif; ?>
     </div>
 
     <!-- Chapter Search & List Header -->
@@ -256,9 +273,10 @@ function formatTanggalIndo($datetime) {
     <div class="chapter-list-wrap">
         <div class="list-group list-group-flush" id="chapterList">
             <?php foreach ($chapters as $ch): ?>
-                <?php $isCurrent = !empty($manga['last_read_chapter_id']) && $manga['last_read_chapter_id'] === $ch['chapter_id']; ?>
+                <?php $isCurrent = $userId && !empty($manga['last_read_chapter_id']) && $manga['last_read_chapter_id'] === $ch['chapter_id']; ?>
                 <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2.5 px-3 <?= $isCurrent ? 'current-read' : '' ?>"
                    href="reader.php?chapter_id=<?= urlencode($ch['chapter_id']) ?>"
+                   data-chapter-id="<?= htmlspecialchars($ch['chapter_id']) ?>"
                    data-search="<?= htmlspecialchars(mb_strtolower($ch['chapter_number'] . ' ' . ($ch['chapter_title'] ?? ''))) ?>">
                     <span class="fw-medium">
                         Chapter <?= (float) $ch['chapter_number'] ?>
@@ -266,7 +284,7 @@ function formatTanggalIndo($datetime) {
                     </span>
                     <span class="d-flex align-items-center gap-2 flex-shrink-0">
                         <small class="text-secondary"><?= formatTanggalIndo($ch['updated_at'] ?? $ch['created_at']) ?></small>
-                        <?php if ($isCurrent): ?><i class="bi bi-bookmark-fill text-primary" title="Chapter terakhir dibaca"></i><?php endif; ?>
+                        <?php if ($isCurrent): ?><i class="bi bi-bookmark-fill text-primary current-read-icon" title="Chapter terakhir dibaca"></i><?php endif; ?>
                     </span>
                 </a>
             <?php endforeach; ?>
@@ -276,6 +294,7 @@ function formatTanggalIndo($datetime) {
 
 </div>
 
+<?php if (isAdmin()): ?>
 <!-- Modal Konfirmasi Hapus Manga -->
 <div class="modal fade" id="deleteMangaModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -295,6 +314,7 @@ function formatTanggalIndo($datetime) {
         </div>
     </div>
 </div>
+<?php endif; ?>
 
 <!-- Toast Notifikasi Chapter Baru (hasil sync background/cron) -->
 <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
@@ -308,8 +328,13 @@ function formatTanggalIndo($datetime) {
     </div>
 </div>
 
+<?php include __DIR__ . "/partials/login_modal.php"; ?>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    const isLoggedIn = <?= $userId ? 'true' : 'false' ?>;
+    const currentMangaId = <?= json_encode($mangaId) ?>;
+
     // Theme Switcher
     const themeToggleBtn = document.getElementById("themeToggle");
     const themeIcon = document.getElementById("themeIcon");
@@ -350,9 +375,10 @@ function formatTanggalIndo($datetime) {
         noResult.style.display = visibleCount === 0 ? "block" : "none";
     });
 
-    // Toggle favorit
+    // Toggle favorit -- kalau GUEST, tampilkan modal login dulu (tidak hit API).
     const favBtn = document.getElementById("favBtn");
     favBtn.addEventListener("click", async () => {
+        if (!isLoggedIn) { showLoginRequiredModal(); return; }
         try {
             const res = await fetch("toggle_favorite.php", {
                 method: "POST",
@@ -376,47 +402,79 @@ function formatTanggalIndo($datetime) {
                 await fetch("save_preferred_source.php", {
                     method: "POST",
                     headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                    body: "manga_id=" + encodeURIComponent(<?= json_encode($mangaId) ?>) +
+                    body: "manga_id=" + encodeURIComponent(currentMangaId) +
                           "&source=" + encodeURIComponent(preferredSourceSelect.value),
                 });
             } catch (err) { alert("Gagal simpan preferensi sumber: " + err.message); }
         });
     }
 
-    // Hapus Single Manga
+    // Hapus Single Manga (admin-only, tombol hanya ada kalau isAdmin())
     const confirmDeleteBtn = document.getElementById("confirmDeleteBtn");
-    confirmDeleteBtn.addEventListener("click", async () => {
-        try {
-            confirmDeleteBtn.disabled = true;
-            confirmDeleteBtn.textContent = "Menghapus...";
+    if (confirmDeleteBtn) {
+        confirmDeleteBtn.addEventListener("click", async () => {
+            try {
+                confirmDeleteBtn.disabled = true;
+                confirmDeleteBtn.textContent = "Menghapus...";
 
-            const res = await fetch("delete_manga.php", {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: "manga_id=" + encodeURIComponent(<?= json_encode($mangaId) ?>)
-            });
-            const data = await res.json();
-            if (!data.success) {
-                alert("Gagal menghapus manga: " + data.error);
+                const res = await fetch("delete_manga.php", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: "manga_id=" + encodeURIComponent(currentMangaId)
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    alert("Gagal menghapus manga: " + data.error);
+                    confirmDeleteBtn.disabled = false;
+                    confirmDeleteBtn.innerHTML = '<i class="bi bi-trash3 me-1"></i> Hapus Permanen';
+                    return;
+                }
+                window.location.href = "index.php";
+            } catch (err) {
+                alert("Error: " + err.message);
                 confirmDeleteBtn.disabled = false;
                 confirmDeleteBtn.innerHTML = '<i class="bi bi-trash3 me-1"></i> Hapus Permanen';
-                return;
             }
-            window.location.href = "index.php";
-        } catch (err) {
-            alert("Error: " + err.message);
-            confirmDeleteBtn.disabled = false;
-            confirmDeleteBtn.innerHTML = '<i class="bi bi-trash3 me-1"></i> Hapus Permanen';
-        }
-    });
+        });
+    }
+
+    // ==== GUEST: Resume/Last-Read dari localStorage ====
+    // Kalau user LOGIN, tombol resume & badge "terakhir dibaca" sudah di-render
+    // server-side dari DB (lihat PHP di atas). Kalau GUEST, kita tempelkan info
+    // yg sama dari localStorage (ditulis oleh reader.php tiap kali baca chapter).
+    if (!isLoggedIn) {
+        try {
+            const raw = localStorage.getItem("manga_last_read:" + currentMangaId);
+            if (raw) {
+                const info = JSON.parse(raw);
+                const resumeBtn = document.getElementById("resumeBtn");
+                const resumeBtnText = document.getElementById("resumeBtnText");
+                const startOverBtn = document.getElementById("startOverBtn");
+
+                if (resumeBtn && info.chapter_id) {
+                    resumeBtn.href = "reader.php?chapter_id=" + encodeURIComponent(info.chapter_id);
+                    if (resumeBtnText) resumeBtnText.textContent = "Lanjutkan Chapter " + info.chapter_number;
+                    resumeBtn.querySelector("i").className = "bi bi-play-fill fs-5 me-1";
+                    if (startOverBtn) startOverBtn.classList.remove("d-none");
+                }
+
+                // Tandai baris chapter yg sesuai di daftar sbg "current-read"
+                const row = document.querySelector(`#chapterList a[data-chapter-id="${CSS.escape(info.chapter_id)}"]`);
+                if (row) {
+                    row.classList.add("current-read");
+                    if (!row.querySelector(".current-read-icon")) {
+                        const icon = document.createElement("i");
+                        icon.className = "bi bi-bookmark-fill text-primary current-read-icon";
+                        icon.title = "Chapter terakhir dibaca (tersimpan di perangkat ini)";
+                        row.querySelector("span.d-flex").appendChild(icon);
+                    }
+                }
+            }
+        } catch (e) { /* localStorage nonaktif/rusak, diamkan */ }
+    }
 
     // ==== Auto-Update Background (Polling, Tanpa Reload) ====
-    // Sync data dilakukan oleh cron (GitHub Actions / server cron) lewat cron_update.php.
-    // Skrip ini hanya memeriksa server secara berkala untuk manga yang sedang dibuka,
-    // dan menyisipkan chapter baru ke daftar tanpa perlu reload halaman.
-
-    const POLL_INTERVAL_MS = 45000; // cek server tiap 45 detik
-    const currentMangaId = <?= json_encode($mangaId) ?>;
+    const POLL_INTERVAL_MS = 45000;
     let knownLatestChapter = <?= (float) ($chapters[0]['chapter_number'] ?? 0) ?>;
 
     function showNewChapterToast(count) {
@@ -429,14 +487,13 @@ function formatTanggalIndo($datetime) {
 
     function prependNewChapters(newChapters) {
         const list = document.getElementById("chapterList");
-        // API mengembalikan urutan ASC (lama -> baru); kita masukkan dari yang
-        // paling baru dulu ke posisi paling atas, supaya urutan akhir tetap DESC.
         const ordered = [...newChapters].reverse();
 
         ordered.forEach(ch => {
             const a = document.createElement("a");
             a.className = "list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2.5 px-3 just-added";
             a.href = "reader.php?chapter_id=" + encodeURIComponent(ch.chapter_id);
+            a.dataset.chapterId = ch.chapter_id;
             a.dataset.search = (ch.chapter_number + " " + (ch.chapter_title || "")).toLowerCase();
 
             const titlePart = ch.chapter_title
@@ -452,7 +509,7 @@ function formatTanggalIndo($datetime) {
             `;
 
             list.prepend(a);
-            items.unshift(a); // supaya ikut ter-cover oleh filter pencarian yang sudah ada
+            items.unshift(a);
 
             setTimeout(() => a.classList.remove("just-added"), 2500);
         });
@@ -480,7 +537,6 @@ function formatTanggalIndo($datetime) {
 
     let mangaPollTimer = setInterval(pollForMangaUpdates, POLL_INTERVAL_MS);
 
-    // Hemat resource: berhenti polling saat tab tidak aktif, cek langsung saat kembali aktif
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
             clearInterval(mangaPollTimer);
@@ -491,8 +547,6 @@ function formatTanggalIndo($datetime) {
         }
     });
 
-    // Multi-tab: kalau user sync manual manga ini lewat crawl.php di tab lain,
-    // halaman ini langsung ikut ter-update juga tanpa nunggu polling interval.
     if (window.BroadcastChannel) {
         const updateChannel = new BroadcastChannel('manga_reader_updates');
         updateChannel.addEventListener('message', (event) => {

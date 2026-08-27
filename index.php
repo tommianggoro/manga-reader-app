@@ -1,10 +1,9 @@
 <?php
 require_once "config.php";
-requireAuth();
+optionalAuth();
 require_once "sources/SourceRegistry.php";
-require_once "sync_functions.php";
 
-$userId = currentUserId();
+$userId = currentUserId(); // null kalau guest
 
 $stmt = $pdo->prepare("
     SELECT m.*, COALESCE(s.is_favorite, 0) AS is_favorite
@@ -33,30 +32,6 @@ foreach ($mangas as $m) {
 }
 $allGenres = array_keys($allGenres);
 sort($allGenres);
-
-// ==== Trending / Panas (dibaca dari cache tabel trending_manga) ====
-$trendingRows = $pdo->query("SELECT * FROM trending_manga ORDER BY source ASC, rank_position ASC")->fetchAll();
-
-$trendingItems = [];      // flat list, dipakai utk tampilan Carousel
-$trendingBySource = [];   // grouped per sumber, dipakai utk tampilan Kolom
-foreach (array_keys(getAllSources()) as $key) {
-    $trendingBySource[$key] = [];
-}
-
-foreach ($trendingRows as $t) {
-    $item = [
-        'source' => $t['source'],
-        'source_ref' => $t['source_ref'],
-        'title' => $t['title'],
-        'cover_image_url' => $t['cover_image_url'],
-        'latest_chapter_number' => $t['latest_chapter_number'],
-        'rank_position' => (int) $t['rank_position'],
-        'manga_id' => findMangaBySource($pdo, $t['source'], $t['source_ref']),
-    ];
-    $trendingItems[] = $item;
-    $trendingBySource[$t['source']][] = $item;
-}
-$trendingBySource = array_filter($trendingBySource, fn($items) => !empty($items));
 
 $sourcesByManga = [];
 $srcRows = $pdo->query("SELECT manga_id, source FROM manga_sources")->fetchAll();
@@ -98,6 +73,8 @@ function formatTanggalIndo($datetime) {
 $importSuccess = $_GET["import_success"] ?? null;
 $importedCount = $_GET["mangas"] ?? 0;
 $importError = $_GET["import_error"] ?? null;
+
+$redirectAfterLogin = "index.php";
 ?>
 <!DOCTYPE html>
 <html lang="id" data-bs-theme="dark">
@@ -192,6 +169,11 @@ $importError = $_GET["import_error"] ?? null;
         .theme-toggle-btn:hover {
             border-color: var(--bs-primary);
             color: var(--bs-primary);
+        }
+
+        .user-avatar-btn img {
+            width: 38px; height: 38px; border-radius: 50%; object-fit: cover;
+            border: 1px solid var(--bs-border-color);
         }
 
         .chip {
@@ -366,78 +348,6 @@ $importError = $_GET["import_error"] ?? null;
             .batch-action-bar { flex-wrap: wrap; justify-content: center; padding: 0.6rem 1rem; }
             .batch-action-bar .btn { min-height: 40px; }
         }
-
-        /* ==== Trending: shared ==== */
-        .trending-view-toggle .btn { width: 38px; }
-
-        /* ---- Carousel view ---- */
-        .trending-shelf-scroll {
-            overflow-x: auto; overflow-y: hidden; padding-bottom: 0.75rem; scrollbar-width: thin;
-        }
-        .trending-shelf-scroll::-webkit-scrollbar { height: 6px; }
-        .trending-shelf-scroll::-webkit-scrollbar-thumb { background: var(--bs-border-color); border-radius: 10px; }
-
-        .trending-card {
-            width: 148px; flex-shrink: 0; border-radius: 14px; overflow: hidden;
-            background: var(--bs-card-bg); border: 1px solid var(--bs-border-color);
-            transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
-        }
-        .trending-card:hover { transform: translateY(-4px); border-color: var(--bs-primary); box-shadow: 0 10px 25px rgba(0,0,0,0.25); }
-
-        .trending-cover-wrap { position: relative; width: 100%; aspect-ratio: 2/3; background: var(--shimmer-bg-1); overflow: hidden; }
-        .trending-cover-wrap img { width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .35s ease, transform .3s ease; }
-        .trending-cover-wrap img.loaded { opacity: 1; }
-        .trending-card:hover .trending-cover-wrap img { transform: scale(1.05); }
-
-        .trending-rank {
-            position: absolute; top: 0; left: 8px; font-family: 'Bitter', Georgia, serif;
-            font-size: 2.6rem; font-weight: 700; line-height: 1; color: rgba(255,255,255,0.92);
-            -webkit-text-stroke: 1.5px rgba(16,19,26,0.9); text-shadow: 0 2px 10px rgba(0,0,0,0.6);
-            z-index: 2; pointer-events: none;
-        }
-        .trending-source-pill {
-            position: absolute; top: 8px; right: 8px; z-index: 2; font-size: 0.62rem; font-weight: 700;
-            padding: 0.2rem 0.55rem; border-radius: 50rem; background: rgba(16,19,26,0.75); backdrop-filter: blur(4px);
-            color: var(--bs-primary); border: 1px solid rgba(242,165,65,0.4); white-space: nowrap;
-        }
-        .trending-cover-overlay {
-            position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; padding: 1.75rem 0.6rem 0.5rem;
-            background: linear-gradient(to top, rgba(8,10,15,0.95) 10%, rgba(8,10,15,0.55) 60%, transparent 100%);
-        }
-        .trending-title {
-            font-size: 0.8rem; font-weight: 700; color: #fff; display: -webkit-box;
-            -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.25; margin-bottom: 0.3rem;
-        }
-        .trending-chapter-chip { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.68rem; font-weight: 600; color: #d8dbe6; }
-        .trending-card-footer { padding: 0.5rem; }
-
-        /* ---- Columns view ---- */
-        .trending-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1rem; }
-        .trending-col { background: var(--bs-secondary-bg); border: 1px solid var(--bs-border-color); border-radius: 14px; overflow: hidden; }
-        .trending-col-header { display: flex; align-items: center; gap: 0.5rem; padding: 0.7rem 1rem; background: var(--bs-tertiary-bg); border-bottom: 1px solid var(--bs-border-color); }
-        .trending-col-header .source-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bs-primary); flex-shrink: 0; }
-        .trending-col-header h3 { font-family: 'Bitter', Georgia, serif; font-size: 0.92rem; font-weight: 700; margin: 0; color: var(--bs-body-color); }
-
-        .trending-row { display: flex; align-items: center; gap: 0.65rem; padding: 0.55rem 1rem; border-bottom: 1px solid var(--bs-border-color); text-decoration: none; transition: background .15s ease; }
-        .trending-row:last-child { border-bottom: none; }
-        .trending-row:hover { background: var(--bs-tertiary-bg); }
-
-        .trending-rank-num { font-family: 'Bitter', Georgia, serif; font-size: 1.25rem; font-weight: 700; width: 22px; flex-shrink: 0; text-align: center; color: #7c8194; }
-        .trending-rank-num.top1 { color: var(--bs-primary); }
-        .trending-rank-num.top2 { color: #d8b46a; }
-        .trending-rank-num.top3 { color: #b98554; }
-
-        .trending-thumb { width: 40px; height: 56px; border-radius: 6px; object-fit: cover; flex-shrink: 0; background: var(--shimmer-bg-1); }
-        .trending-row-info { flex-grow: 1; min-width: 0; }
-        .trending-row-title { font-size: 0.8rem; font-weight: 600; color: var(--bs-body-color); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .trending-row-meta { font-size: 0.7rem; color: #7c8194; }
-        .trending-row-action .btn { width: 30px; height: 30px; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-
-        @media (max-width: 576px) {
-            .trending-card { width: 128px; }
-            .trending-rank { font-size: 2.1rem; }
-            .trending-columns { grid-template-columns: 1fr; }
-        }
     </style>
 </head>
 <body>
@@ -461,130 +371,57 @@ $importError = $_GET["import_error"] ?? null;
     <div class="app-header d-flex align-items-center justify-content-between flex-wrap gap-2">
         <h1 class="brand-font"><i class="bi bi-book-half text-primary"></i> Koleksi Manga Pribadi</h1>
         <div class="d-flex align-items-center gap-2 header-actions">
-            <a href="crawl_all.php" target="_blank" class="btn btn-outline-warning btn-sm fw-semibold" title="Sinkronisasi seluruh manga di koleksi">
-                <i class="bi bi-arrow-repeat me-1"></i>
-                <span class="d-none d-sm-inline">🔥 Cek Update Semua Manga</span>
-                <span class="d-inline d-sm-none">Sync</span>
-            </a>
-            <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#backupModal" title="Ekspor/Impor JSON Backup">
-                <i class="bi bi-database-gear me-1"></i> <span class="d-none d-sm-inline">Backup</span>
-            </button>
+            <?php if (isAdmin()): ?>
+                <a href="crawl_all.php" target="_blank" class="btn btn-outline-warning btn-sm fw-semibold" title="Sinkronisasi seluruh manga di koleksi">
+                    <i class="bi bi-arrow-repeat me-1"></i>
+                    <span class="d-none d-sm-inline">🔥 Cek Update Semua Manga</span>
+                    <span class="d-inline d-sm-none">Sync</span>
+                </a>
+                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#backupModal" title="Ekspor/Impor JSON Backup">
+                    <i class="bi bi-database-gear me-1"></i> <span class="d-none d-sm-inline">Backup</span>
+                </button>
+                <a href="manage_admin.php" class="btn btn-outline-secondary btn-sm" title="Kelola Admin">
+                    <i class="bi bi-people-fill me-1"></i> <span class="d-none d-sm-inline">Kelola Admin</span>
+                </a>
+            <?php endif; ?>
             <button type="button" class="theme-toggle-btn ms-1" id="themeToggle" title="Ganti Mode Gelap/Terang">
                 <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
             </button>
-            <a href="logout.php" class="theme-toggle-btn" title="Keluar (<?= htmlspecialchars(currentUsername()) ?>)">
-                <i class="bi bi-box-arrow-right"></i>
-            </a>
+            <?php if ($userId): ?>
+                <a href="profile.php" class="theme-toggle-btn user-avatar-btn p-0 overflow-hidden" title="Profil (<?= htmlspecialchars(currentUsername()) ?>)">
+                    <img src="<?= htmlspecialchars(currentUserAvatarUrl()) ?>" alt="Profil">
+                </a>
+                <a href="logout.php" class="theme-toggle-btn" title="Keluar (<?= htmlspecialchars(currentUsername()) ?>)">
+                    <i class="bi bi-box-arrow-right"></i>
+                </a>
+            <?php else: ?>
+                <a href="login.php" class="btn btn-primary btn-sm fw-semibold">
+                    <i class="bi bi-box-arrow-in-right me-1"></i> Login
+                </a>
+            <?php endif; ?>
         </div>
     </div>
-
-    <?php if (!empty($trendingItems)): ?>
-    <div class="mb-4">
-        <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
-            <div class="d-flex align-items-baseline gap-2">
-                <h2 class="h5 brand-font mb-0"><i class="bi bi-fire text-danger me-1"></i> Trending Hari Ini</h2>
-                <span class="small text-secondary d-none d-sm-inline">diperbarui tiap hari dari <?= count($trendingBySource) ?> sumber</span>
-            </div>
-            <div class="btn-group trending-view-toggle" role="group" aria-label="Mode Tampilan Trending">
-                <button type="button" class="btn btn-outline-secondary active" id="trendingCarouselBtn" title="Tampilan Carousel">
-                    <i class="bi bi-images"></i>
-                </button>
-                <button type="button" class="btn btn-outline-secondary" id="trendingColumnsBtn" title="Tampilan Kolom per Sumber">
-                    <i class="bi bi-layout-three-columns"></i>
-                </button>
-            </div>
-        </div>
-
-        <!-- Mode: Carousel -->
-        <div id="trendingCarousel">
-            <div class="d-flex gap-3 trending-shelf-scroll">
-                <?php foreach ($trendingItems as $t): ?>
-                    <div class="trending-card">
-                        <div class="trending-cover-wrap skeleton-shimmer">
-                            <span class="trending-rank"><?= $t['rank_position'] ?></span>
-                            <span class="trending-source-pill"><?= htmlspecialchars($sourceLabels[$t['source']] ?? $t['source']) ?></span>
-                            <img src="<?= htmlspecialchars($t['cover_image_url']) ?>" alt="<?= htmlspecialchars($t['title']) ?>" loading="lazy"
-                                onload="this.classList.add('loaded'); this.parentElement.classList.remove('skeleton-shimmer');"
-                                onerror="this.style.opacity=0">
-                            <div class="trending-cover-overlay">
-                                <div class="trending-title" title="<?= htmlspecialchars($t['title']) ?>"><?= htmlspecialchars($t['title']) ?></div>
-                                <?php if ($t['latest_chapter_number']): ?>
-                                    <span class="trending-chapter-chip"><i class="bi bi-journal-text"></i> Ch. <?= htmlspecialchars(formatChapterNumber($t['latest_chapter_number'])) ?></span>
-                                <?php endif; ?>
-                            </div>
-                        </div>
-                        <div class="trending-card-footer">
-                            <?php if ($t['manga_id']): ?>
-                                <a href="manga.php?manga_id=<?= urlencode($t['manga_id']) ?>" class="btn btn-outline-primary btn-sm w-100 fw-semibold">
-                                    <i class="bi bi-book me-1"></i> Buka
-                                </a>
-                            <?php else: ?>
-                                <a href="add_manga.php?source=<?= urlencode($t['source']) ?>&source_ref=<?= urlencode($t['source_ref']) ?>" class="btn btn-primary btn-sm w-100 fw-semibold">
-                                    <i class="bi bi-plus-lg me-1"></i> Tambahkan
-                                </a>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-        </div>
-
-        <!-- Mode: Kolom per Sumber -->
-        <div id="trendingColumnsWrap" style="display:none;">
-            <div class="trending-columns">
-                <?php foreach ($trendingBySource as $sourceKey => $items): ?>
-                    <div class="trending-col">
-                        <div class="trending-col-header">
-                            <span class="source-dot"></span>
-                            <h3><?= htmlspecialchars($sourceLabels[$sourceKey] ?? $sourceKey) ?></h3>
-                        </div>
-                        <?php foreach ($items as $t): ?>
-                            <?php
-                                $rankClass = $t['rank_position'] === 1 ? 'top1' : ($t['rank_position'] === 2 ? 'top2' : ($t['rank_position'] === 3 ? 'top3' : ''));
-                                $targetUrl = $t['manga_id']
-                                    ? "manga.php?manga_id=" . urlencode($t['manga_id'])
-                                    : "add_manga.php?source=" . urlencode($t['source']) . "&source_ref=" . urlencode($t['source_ref']);
-                            ?>
-                            <a href="<?= $targetUrl ?>" class="trending-row">
-                                <span class="trending-rank-num <?= $rankClass ?>"><?= $t['rank_position'] ?></span>
-                                <img class="trending-thumb" src="<?= htmlspecialchars($t['cover_image_url']) ?>" alt="" loading="lazy" onerror="this.style.opacity=0">
-                                <div class="trending-row-info">
-                                    <div class="trending-row-title" title="<?= htmlspecialchars($t['title']) ?>"><?= htmlspecialchars($t['title']) ?></div>
-                                    <div class="trending-row-meta">
-                                        <?php if ($t['latest_chapter_number']): ?>Ch. <?= htmlspecialchars(formatChapterNumber($t['latest_chapter_number'])) ?><?php endif; ?>
-                                    </div>
-                                </div>
-                                <span class="trending-row-action">
-                                    <?php if ($t['manga_id']): ?>
-                                        <span class="btn btn-outline-primary btn-sm" title="Buka"><i class="bi bi-book"></i></span>
-                                    <?php else: ?>
-                                        <span class="btn btn-primary btn-sm" title="Tambahkan"><i class="bi bi-plus-lg"></i></span>
-                                    <?php endif; ?>
-                                </span>
-                            </a>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-        </div>
-    </div>
-    <?php endif; ?>
 
     <!-- Statistik Bar -->
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
         <div class="d-flex flex-wrap gap-2">
             <div class="stats-badge"><i class="bi bi-collection-fill text-primary"></i> <span id="statMangaCount"><?= $totalManga ?> Manga</span></div>
             <div class="stats-badge"><i class="bi bi-journals text-info"></i> <span id="statChapterCount"><?= $totalChapters ?> Chapter</span></div>
+            <?php if ($userId): ?>
             <div class="stats-badge"><i class="bi bi-star-fill text-warning"></i> <span id="statFavCount"><?= $totalFavorites ?> Favorit</span></div>
+            <?php endif; ?>
             <?php if ($recentlyUpdated > 0): ?>
                 <div class="stats-badge"><i class="bi bi-fire text-danger"></i> <span>🔥 <?= $recentlyUpdated ?> Update Minggu Ini</span></div>
             <?php endif; ?>
         </div>
+        <?php if (isAdmin()): ?>
         <button type="button" class="btn btn-sm btn-outline-secondary" id="toggleManageModeBtn">
             <i class="bi bi-ui-checks me-1"></i> Mode Kelola / Batch Delete
         </button>
+        <?php endif; ?>
     </div>
 
+    <?php if (isAdmin()): ?>
     <div class="d-flex gap-2 mb-3">
         <a href="search_manga.php" class="btn btn-primary btn-lg fs-6 flex-grow-1">
             <i class="bi bi-search-heart me-1"></i> Cari & Tambah Manga
@@ -603,6 +440,7 @@ $importError = $_GET["import_error"] ?? null;
             </div>
         </form>
     </div>
+    <?php endif; ?>
 
     <!-- Search & View Mode Switcher -->
     <div class="row g-2 mb-3">
@@ -747,13 +585,14 @@ $importError = $_GET["import_error"] ?? null;
     <?php if (empty($mangas)): ?>
         <div class="empty-state-card my-4" id="emptyDatabaseState">
             <div class="empty-icon-box"><i class="bi bi-journal-plus"></i></div>
-            <h3 class="h4 brand-font mb-2">Perpustakaan Manga Anda Masih Kosong</h3>
+            <h3 class="h4 brand-font mb-2">Perpustakaan Manga Masih Kosong</h3>
             <p class="text-secondary mb-4 mx-auto" style="max-width: 480px;">
-                Mulai bangun koleksi manga pribadi Anda! Ambil <code class="text-primary">manga_id</code> dari Shinigami, lalu tempelkan pada formulir di atas.
+                <?php if (isAdmin()): ?>
+                    Mulai bangun koleksi manga! Klik "Cari & Tambah Manga" di atas.
+                <?php else: ?>
+                    Belum ada manga di koleksi ini. Hubungi admin untuk menambahkan manga.
+                <?php endif; ?>
             </p>
-            <button type="button" class="btn btn-primary px-4 py-2 fw-semibold" onclick="document.getElementById('mangaIdInput').focus();">
-                <i class="bi bi-plus-lg me-1"></i> Tambahkan Manga Pertama
-            </button>
         </div>
     <?php endif; ?>
 
@@ -769,6 +608,7 @@ $importError = $_GET["import_error"] ?? null;
 
 </div>
 
+<?php if (isAdmin()): ?>
 <!-- Floating Action Bar Mode Kelola / Batch Delete -->
 <div class="batch-action-bar" id="batchBar">
     <span class="small fw-semibold me-2" id="selectedCountText">0 Terpilih</span>
@@ -831,6 +671,7 @@ $importError = $_GET["import_error"] ?? null;
         </div>
     </div>
 </div>
+<?php endif; ?>
 
 <!-- Toast Notifikasi Chapter Baru (hasil sync background/cron) -->
 <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
@@ -844,8 +685,13 @@ $importError = $_GET["import_error"] ?? null;
     </div>
 </div>
 
+<?php include __DIR__ . "/partials/login_modal.php"; ?>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+    const isLoggedIn = <?= $userId ? 'true' : 'false' ?>;
+    const isAdminUser = <?= isAdmin() ? 'true' : 'false' ?>;
+
     // Theme Switcher Logic
     const themeToggleBtn = document.getElementById("themeToggle");
     const themeIcon = document.getElementById("themeIcon");
@@ -926,6 +772,7 @@ $importError = $_GET["import_error"] ?? null;
     chips.forEach(chip => {
         chip.addEventListener("click", () => {
             if (chip.dataset.filter === "favorite") {
+                if (!isLoggedIn) { showLoginRequiredModal(); return; }
                 favOnly = !favOnly;
                 setChipActive(chip, favOnly);
             } else {
@@ -968,10 +815,12 @@ $importError = $_GET["import_error"] ?? null;
     viewListBtn.addEventListener("click", () => setViewMode("list"));
     setViewMode(localStorage.getItem("manga_view_mode") || "grid");
 
-    // Toggle Favorit
+    // Toggle Favorit -- GUEST ditampilkan modal login, tidak hit API.
     document.querySelectorAll(".fav-star").forEach(star => {
         star.addEventListener("click", async (e) => {
             e.preventDefault(); e.stopPropagation();
+            if (!isLoggedIn) { showLoginRequiredModal(); return; }
+
             const mangaId = star.dataset.mangaId;
             try {
                 const res = await fetch("toggle_favorite.php", {
@@ -996,130 +845,124 @@ $importError = $_GET["import_error"] ?? null;
         });
     });
 
-    // Mode Kelola & Batch Delete Logic
+    // Mode Kelola & Batch Delete Logic (admin-only, elemen hanya ada kalau isAdminUser)
     const toggleManageModeBtn = document.getElementById("toggleManageModeBtn");
-    const batchBar = document.getElementById("batchBar");
-    const cancelManageBtn = document.getElementById("cancelManageBtn");
-    const selectAllBtn = document.getElementById("selectAllBtn");
-    const batchDeleteBtn = document.getElementById("batchDeleteBtn");
-    const selectedCountText = document.getElementById("selectedCountText");
-    const confirmBatchDeleteModal = new bootstrap.Modal(document.getElementById("confirmBatchDeleteModal"));
-    const executeBatchDeleteBtn = document.getElementById("executeBatchDeleteBtn");
-    const deleteCountModalText = document.getElementById("deleteCountModalText");
+    if (toggleManageModeBtn) {
+        const batchBar = document.getElementById("batchBar");
+        const cancelManageBtn = document.getElementById("cancelManageBtn");
+        const selectAllBtn = document.getElementById("selectAllBtn");
+        const batchDeleteBtn = document.getElementById("batchDeleteBtn");
+        const selectedCountText = document.getElementById("selectedCountText");
+        const confirmBatchDeleteModal = new bootstrap.Modal(document.getElementById("confirmBatchDeleteModal"));
+        const executeBatchDeleteBtn = document.getElementById("executeBatchDeleteBtn");
+        const deleteCountModalText = document.getElementById("deleteCountModalText");
 
-    let isManageMode = false;
+        let isManageMode = false;
 
-    function toggleManageMode(enable) {
-        isManageMode = enable !== undefined ? enable : !isManageMode;
-        document.body.classList.toggle("manage-mode", isManageMode);
-        batchBar.style.display = isManageMode ? "flex" : "none";
-        toggleManageModeBtn.classList.toggle("btn-primary", isManageMode);
-        toggleManageModeBtn.classList.toggle("btn-outline-secondary", !isManageMode);
+        function toggleManageMode(enable) {
+            isManageMode = enable !== undefined ? enable : !isManageMode;
+            document.body.classList.toggle("manage-mode", isManageMode);
+            batchBar.style.display = isManageMode ? "flex" : "none";
+            toggleManageModeBtn.classList.toggle("btn-primary", isManageMode);
+            toggleManageModeBtn.classList.toggle("btn-outline-secondary", !isManageMode);
 
-        if (!isManageMode) {
-            document.querySelectorAll(".batch-checkbox").forEach(cb => cb.checked = false);
-            updateBatchUI();
+            if (!isManageMode) {
+                document.querySelectorAll(".batch-checkbox").forEach(cb => cb.checked = false);
+                updateBatchUI();
+            }
         }
-    }
 
-    toggleManageModeBtn.addEventListener("click", () => toggleManageMode());
-    cancelManageBtn.addEventListener("click", () => toggleManageMode(false));
+        toggleManageModeBtn.addEventListener("click", () => toggleManageMode());
+        cancelManageBtn.addEventListener("click", () => toggleManageMode(false));
 
-    function getSelectedMangaIds() {
-        const checked = Array.from(document.querySelectorAll(".batch-checkbox:checked"));
-        return Array.from(new Set(checked.map(cb => cb.value)));
-    }
+        function getSelectedMangaIds() {
+            const checked = Array.from(document.querySelectorAll(".batch-checkbox:checked"));
+            return Array.from(new Set(checked.map(cb => cb.value)));
+        }
 
-    function updateBatchUI() {
-        const selected = getSelectedMangaIds();
-        selectedCountText.textContent = `${selected.length} Terpilih`;
-        batchDeleteBtn.disabled = selected.length === 0;
-    }
+        function updateBatchUI() {
+            const selected = getSelectedMangaIds();
+            selectedCountText.textContent = `${selected.length} Terpilih`;
+            batchDeleteBtn.disabled = selected.length === 0;
+        }
 
-    document.querySelectorAll(".batch-checkbox").forEach(cb => {
-        cb.addEventListener("change", (e) => {
-            // Saling sync antara checkbox di Grid & List
-            const val = e.target.value;
-            document.querySelectorAll(`.batch-checkbox[value="${CSS.escape(val)}"]`).forEach(c => c.checked = e.target.checked);
-            updateBatchUI();
-        });
-    });
-
-    selectAllBtn.addEventListener("click", () => {
-        const allCheckboxes = Array.from(document.querySelectorAll(".batch-checkbox"));
-        const visibleCols = gridCols.filter(col => col.style.display !== "none");
-        const visibleIds = visibleCols.map(col => col.dataset.mangaId);
-
-        const areAllVisibleSelected = visibleIds.every(id => {
-            const cb = document.querySelector(`.batch-checkbox[value="${CSS.escape(id)}"]`);
-            return cb && cb.checked;
-        });
-
-        allCheckboxes.forEach(cb => {
-            if (visibleIds.includes(cb.value)) {
-                cb.checked = !areAllVisibleSelected;
-            }
-        });
-        updateBatchUI();
-    });
-
-    batchDeleteBtn.addEventListener("click", () => {
-        const selected = getSelectedMangaIds();
-        if (selected.length === 0) return;
-        deleteCountModalText.textContent = selected.length;
-        confirmBatchDeleteModal.show();
-    });
-
-    executeBatchDeleteBtn.addEventListener("click", async () => {
-        const selected = getSelectedMangaIds();
-        if (selected.length === 0) return;
-
-        try {
-            executeBatchDeleteBtn.disabled = true;
-            executeBatchDeleteBtn.textContent = "Menghapus...";
-
-            const res = await fetch("delete_manga.php", {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                body: "manga_ids=" + encodeURIComponent(JSON.stringify(selected))
+        document.querySelectorAll(".batch-checkbox").forEach(cb => {
+            cb.addEventListener("change", (e) => {
+                const val = e.target.value;
+                document.querySelectorAll(`.batch-checkbox[value="${CSS.escape(val)}"]`).forEach(c => c.checked = e.target.checked);
+                updateBatchUI();
             });
-            const data = await res.json();
-            if (!data.success) {
-                alert("Gagal menghapus manga: " + data.error);
-                return;
-            }
+        });
 
-            // Hapus elemen dari DOM
-            selected.forEach(mId => {
-                document.querySelectorAll(`[data-manga-id="${CSS.escape(mId)}"]`).forEach(el => el.remove());
+        selectAllBtn.addEventListener("click", () => {
+            const allCheckboxes = Array.from(document.querySelectorAll(".batch-checkbox"));
+            const visibleCols = gridCols.filter(col => col.style.display !== "none");
+            const visibleIds = visibleCols.map(col => col.dataset.mangaId);
+
+            const areAllVisibleSelected = visibleIds.every(id => {
+                const cb = document.querySelector(`.batch-checkbox[value="${CSS.escape(id)}"]`);
+                return cb && cb.checked;
             });
 
-            confirmBatchDeleteModal.hide();
-            toggleManageMode(false);
+            allCheckboxes.forEach(cb => {
+                if (visibleIds.includes(cb.value)) {
+                    cb.checked = !areAllVisibleSelected;
+                }
+            });
+            updateBatchUI();
+        });
 
-            // Update stats counter
-            const remaining = document.querySelectorAll("#mangaGrid .manga-item-col").length;
-            document.getElementById("statMangaCount").textContent = `${remaining} Manga`;
+        batchDeleteBtn.addEventListener("click", () => {
+            const selected = getSelectedMangaIds();
+            if (selected.length === 0) return;
+            deleteCountModalText.textContent = selected.length;
+            confirmBatchDeleteModal.show();
+        });
 
-            if (remaining === 0) {
-                window.location.reload();
+        executeBatchDeleteBtn.addEventListener("click", async () => {
+            const selected = getSelectedMangaIds();
+            if (selected.length === 0) return;
+
+            try {
+                executeBatchDeleteBtn.disabled = true;
+                executeBatchDeleteBtn.textContent = "Menghapus...";
+
+                const res = await fetch("delete_manga.php", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: "manga_ids=" + encodeURIComponent(JSON.stringify(selected))
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    alert("Gagal menghapus manga: " + data.error);
+                    return;
+                }
+
+                selected.forEach(mId => {
+                    document.querySelectorAll(`[data-manga-id="${CSS.escape(mId)}"]`).forEach(el => el.remove());
+                });
+
+                confirmBatchDeleteModal.hide();
+                toggleManageMode(false);
+
+                const remaining = document.querySelectorAll("#mangaGrid .manga-item-col").length;
+                document.getElementById("statMangaCount").textContent = `${remaining} Manga`;
+
+                if (remaining === 0) {
+                    window.location.reload();
+                }
+            } catch (err) {
+                alert("Error: " + err.message);
+            } finally {
+                executeBatchDeleteBtn.disabled = false;
+                executeBatchDeleteBtn.innerHTML = '<i class="bi bi-trash3 me-1"></i> Ya, Hapus Sekarang';
             }
-        } catch (err) {
-            alert("Error: " + err.message);
-        } finally {
-            executeBatchDeleteBtn.disabled = false;
-            executeBatchDeleteBtn.innerHTML = '<i class="bi bi-trash3 me-1"></i> Ya, Hapus Sekarang';
-        }
-    });
+        });
+    }
 
     // ==== Auto-Update Background (Polling, Tanpa Reload) ====
-    // Sinkronisasi data manga/chapter dilakukan oleh cron (GitHub Actions / server cron)
-    // lewat cron_update.php. Skrip ini hanya memeriksa server secara berkala dan
-    // memperbarui tampilan begitu ada perubahan, supaya user tidak perlu reload manual.
+    const POLL_INTERVAL_MS = 45000;
 
-    const POLL_INTERVAL_MS = 45000; // cek server tiap 45 detik
-
-    // Snapshot chapter terakhir yang diketahui browser, diisi dari render awal PHP
     const mangaChapterSnapshot = {};
     document.querySelectorAll('[data-manga-id] .chapter-badge').forEach(badge => {
         const col = badge.closest('[data-manga-id]');
@@ -1158,14 +1001,15 @@ $importError = $_GET["import_error"] ?? null;
             if (!data.success) return;
 
             document.getElementById('statMangaCount').textContent = `${data.stats.total_manga} Manga`;
-            document.getElementById('statFavCount').textContent = `${data.stats.total_favorites} Favorit`;
+            const favEl = document.getElementById('statFavCount');
+            if (favEl) favEl.textContent = `${data.stats.total_favorites} Favorit`;
             const chEl = document.getElementById('statChapterCount');
             if (chEl) chEl.textContent = `${data.stats.total_chapters} Chapter`;
 
             let updatedCount = 0;
             for (const [mangaId, latestChapter] of Object.entries(data.mangas)) {
                 const prev = mangaChapterSnapshot[mangaId];
-                if (prev === undefined) continue; // manga baru ditambah manual, bukan dari cron
+                if (prev === undefined) continue;
                 if (latestChapter > prev) {
                     mangaChapterSnapshot[mangaId] = latestChapter;
                     applyChapterUpdate(mangaId, latestChapter);
@@ -1181,7 +1025,6 @@ $importError = $_GET["import_error"] ?? null;
 
     let pollTimer = setInterval(pollForUpdates, POLL_INTERVAL_MS);
 
-    // Hemat resource: berhenti polling saat tab tidak aktif, cek langsung saat kembali aktif
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
             clearInterval(pollTimer);
@@ -1192,8 +1035,6 @@ $importError = $_GET["import_error"] ?? null;
         }
     });
 
-    // Multi-tab: kalau user sync manual lewat crawl.php/crawl_all.php di tab lain,
-    // tab index.php ini langsung ikut ter-update juga tanpa nunggu polling interval.
     if (window.BroadcastChannel) {
         const updateChannel = new BroadcastChannel('manga_reader_updates');
         updateChannel.addEventListener('message', (event) => {
@@ -1206,27 +1047,6 @@ $importError = $_GET["import_error"] ?? null;
                 }
             }
         });
-    }
-
-    // Toggle Tampilan Trending: Carousel <-> Kolom per Sumber
-    const trendingCarouselBtn = document.getElementById("trendingCarouselBtn");
-    const trendingColumnsBtn = document.getElementById("trendingColumnsBtn");
-    const trendingCarousel = document.getElementById("trendingCarousel");
-    const trendingColumnsWrap = document.getElementById("trendingColumnsWrap");
-
-    function setTrendingViewMode(mode) {
-        localStorage.setItem("manga_trending_view", mode);
-        const isColumns = mode === "columns";
-        trendingCarousel.style.display = isColumns ? "none" : "block";
-        trendingColumnsWrap.style.display = isColumns ? "block" : "none";
-        trendingCarouselBtn.classList.toggle("active", !isColumns);
-        trendingColumnsBtn.classList.toggle("active", isColumns);
-    }
-
-    if (trendingCarouselBtn && trendingColumnsBtn) {
-        trendingCarouselBtn.addEventListener("click", () => setTrendingViewMode("carousel"));
-        trendingColumnsBtn.addEventListener("click", () => setTrendingViewMode("columns"));
-        setTrendingViewMode(localStorage.getItem("manga_trending_view") || "carousel");
     }
 </script>
 </body>
