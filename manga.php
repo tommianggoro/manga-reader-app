@@ -36,7 +36,6 @@ function formatTanggalIndo($datetime) {
     return date("j", $ts) . " " . $bulan[(int) date("n", $ts) - 1] . " " . date("Y", $ts);
 }
 
-$redirectAfterLogin = "manga.php?manga_id=" . urlencode($mangaId);
 ?>
 <!DOCTYPE html>
 <html lang="id" data-bs-theme="dark">
@@ -174,13 +173,13 @@ $redirectAfterLogin = "manga.php?manga_id=" . urlencode($mangaId);
                 <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
             </button>
             <?php if ($userId): ?>
-                <a href="logout.php" class="theme-toggle-btn" title="Keluar (<?= htmlspecialchars(currentUsername()) ?>)">
+                <button type="button" class="theme-toggle-btn" onclick="logoutUser()" title="Keluar (<?= htmlspecialchars(currentUsername()) ?>)">
                     <i class="bi bi-box-arrow-right"></i>
-                </a>
+                </button>
             <?php else: ?>
-                <a href="login.php?redirect=<?= urlencode($redirectAfterLogin) ?>" class="theme-toggle-btn" title="Login">
+                <button type="button" class="theme-toggle-btn" onclick="showLoginRequiredModal()" title="Login">
                     <i class="bi bi-box-arrow-in-right"></i>
-                </a>
+                </button>
             <?php endif; ?>
         </div>
     </div>

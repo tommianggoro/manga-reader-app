@@ -283,13 +283,13 @@ $allChapters = $stmt->fetchAll();
                 <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
             </button>
             <?php if ($userId): ?>
-                <a href="logout.php" class="theme-toggle-btn" title="Keluar (<?= htmlspecialchars(currentUsername()) ?>)">
+                <button type="button" class="theme-toggle-btn" onclick="logoutUser()" title="Keluar (<?= htmlspecialchars(currentUsername()) ?>)">
                     <i class="bi bi-box-arrow-right"></i>
-                </a>
+                </button>
             <?php else: ?>
-                <a href="login.php" class="theme-toggle-btn" title="Login">
+                <button type="button" class="theme-toggle-btn" onclick="showLoginRequiredModal('Login supaya progres bacamu tersimpan ke akun.')" title="Login">
                     <i class="bi bi-box-arrow-in-right"></i>
-                </a>
+                </button>
             <?php endif; ?>
         </div>
     </nav>
@@ -308,7 +308,7 @@ $allChapters = $stmt->fetchAll();
     <?php if (!$userId): ?>
         <div class="guest-notice px-3">
             <i class="bi bi-info-circle text-primary"></i>
-            <span>Progres bacamu disimpan di perangkat ini saja. <a href="login.php">Login</a> supaya tersimpan ke akun & bisa dilanjut dari perangkat lain.</span>
+            <span>Progres bacamu disimpan di perangkat ini saja. <a href="javascript:void(0)" onclick="showLoginRequiredModal('Login supaya progres bacamu tersimpan ke akun.')">Login</a> supaya tersimpan ke akun & bisa dilanjut dari perangkat lain.</span>
         </div>
     <?php endif; ?>
 
@@ -423,6 +423,8 @@ $allChapters = $stmt->fetchAll();
             <li><kbd>Home</kbd> / <kbd>End</kbd> : Puncak / Dasar Halaman</li>
         </ul>
     </div>
+
+    <?php include __DIR__ . "/partials/login_modal.php"; ?>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>

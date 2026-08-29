@@ -391,13 +391,13 @@ $redirectAfterLogin = "index.php";
                 <a href="profile.php" class="theme-toggle-btn user-avatar-btn p-0 overflow-hidden" title="Profil (<?= htmlspecialchars(currentUsername()) ?>)">
                     <img src="<?= htmlspecialchars(currentUserAvatarUrl()) ?>" alt="Profil">
                 </a>
-                <a href="logout.php" class="theme-toggle-btn" title="Keluar (<?= htmlspecialchars(currentUsername()) ?>)">
+                <button type="button" class="theme-toggle-btn" onclick="logoutUser()" title="Keluar (<?= htmlspecialchars(currentUsername()) ?>)">
                     <i class="bi bi-box-arrow-right"></i>
-                </a>
+                </button>
             <?php else: ?>
-                <a href="login.php" class="btn btn-primary btn-sm fw-semibold">
+                <button type="button" class="btn btn-primary btn-sm fw-semibold" onclick="showLoginRequiredModal('Masuk untuk mengelola bookmark & progres bacamu.')">
                     <i class="bi bi-box-arrow-in-right me-1"></i> Login
-                </a>
+                </button>
             <?php endif; ?>
         </div>
     </div>

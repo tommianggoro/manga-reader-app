@@ -33,6 +33,9 @@ $totalAdmins = count(array_filter($users, fn($u) => (int) $u["is_admin"] === 1))
         <a class="d-inline-flex align-items-center gap-1 text-decoration-none fw-medium" href="index.php">
             <i class="bi bi-arrow-left"></i> Kembali ke koleksi
         </a>
+        <button type="button" class="theme-toggle-btn" style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid var(--bs-border-color);background:var(--bs-secondary-bg);color:var(--bs-body-color);" onclick="logoutUser('index.php')" title="Keluar">
+            <i class="bi bi-box-arrow-right"></i>
+        </button>
     </div>
 
     <h1 class="brand-font h4 mb-1"><i class="bi bi-people-fill text-primary me-1"></i> Kelola Admin</h1>
@@ -104,6 +107,16 @@ $totalAdmins = count(array_filter($users, fn($u) => (int) $u["is_admin"] === 1))
             }
         });
     });
+
+    // Logout via AJAX -- halaman ini wajib admin, jadi setelah logout diarahkan
+    // ke index.php (bukan reload di tempat, krn reload akan langsung mental ke
+    // login.php lagi oleh requireAdmin()).
+    async function logoutUser(fallbackUrl) {
+        try {
+            await fetch('logout_api.php', { method: 'POST' });
+        } catch (err) { /* tetap lanjut redirect walau request gagal */ }
+        window.location.href = fallbackUrl || 'index.php';
+    }
 </script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>

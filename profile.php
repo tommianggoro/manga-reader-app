@@ -141,7 +141,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             <?php if (isAdmin()): ?>
                 <a href="manage_admin.php" class="theme-toggle-btn" title="Kelola Admin"><i class="bi bi-people-fill"></i></a>
             <?php endif; ?>
-            <a href="logout.php" class="theme-toggle-btn" title="Keluar"><i class="bi bi-box-arrow-right"></i></a>
+            <button type="button" class="theme-toggle-btn" onclick="logoutUser('index.php')" title="Keluar"><i class="bi bi-box-arrow-right"></i></button>
         </div>
     </div>
 
@@ -204,5 +204,17 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         </form>
     </div>
 </div>
+
+<script>
+    // Logout via AJAX -- profile.php wajib login, jadi setelah logout diarahkan
+    // ke index.php (bukan reload di tempat, krn halaman ini akan langsung
+    // redirect ke login.php lagi kalau di-reload sbg guest).
+    async function logoutUser(fallbackUrl) {
+        try {
+            await fetch('logout_api.php', { method: 'POST' });
+        } catch (err) { /* tetap lanjut redirect walau request gagal */ }
+        window.location.href = fallbackUrl || 'index.php';
+    }
+</script>
 </body>
 </html>
