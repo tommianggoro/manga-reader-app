@@ -1,6 +1,6 @@
 <?php
 require_once "config.php";
-requireAuth();
+requireAdmin();
 
 $userId = currentUserId();
 
@@ -40,7 +40,7 @@ foreach ($mangas as $m) {
     $exportData["mangas"][] = $mangaItem;
 }
 
-// Status pribadi user yang sedang login
+// Status pribadi user yang sedang login (admin yg export)
 $stmt = $pdo->prepare("SELECT manga_id, is_favorite, last_read_chapter_id, last_read_chapter_number, last_read_at FROM user_manga_state WHERE user_id = :uid");
 $stmt->execute([":uid" => $userId]);
 foreach ($stmt->fetchAll() as $row) {

@@ -4,17 +4,38 @@ session_start();
 
 $error = "";
 $success = "";
+$ip = getClientIp();
+
+// Captcha matematika sederhana (tanpa dependensi eksternal). Dibuat ulang
+// tiap kali form di-render (GET, atau POST yang gagal) supaya tidak bisa dipakai berulang.
+function newCaptcha() {
+    $a = random_int(1, 9);
+    $b = random_int(1, 9);
+    $_SESSION["captcha_answer"] = $a + $b;
+    $_SESSION["register_form_time"] = time();
+    return [$a, $b];
+}
 
 if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $username = trim($_POST["username"] ?? "");
     $password = $_POST["password"] ?? "";
     $confirm = $_POST["confirm_password"] ?? "";
-    $secretKey = $_POST["secret_key"] ?? "";
+    $honeypot = trim($_POST["website"] ?? ""); // field jebakan, harus KOSONG kalau manusia
+    $captchaInput = trim($_POST["captcha"] ?? "");
 
-    if (empty(REGISTRATION_SECRET_KEY)) {
-        $error = "Pendaftaran akun baru sedang dinonaktifkan. Atur REGISTRATION_SECRET_KEY di .env untuk mengaktifkan.";
-    } elseif (!hash_equals(REGISTRATION_SECRET_KEY, $secretKey)) {
-        $error = "Kunci pendaftaran salah.";
+    if (!checkRegistrationAllowed($pdo, $ip)) {
+        $error = "Terlalu banyak percobaan pendaftaran dari alamat ini. Coba lagi dalam beberapa saat.";
+    } elseif ($honeypot !== "") {
+        // Diam-diam anggap sukses palsu utk bot (jangan kasih tahu ini honeypot).
+        recordRegistrationAttempt($pdo, $ip);
+        $error = "Pendaftaran gagal. Silakan coba lagi.";
+    } elseif (!isset($_SESSION["register_form_time"]) || (time() - $_SESSION["register_form_time"]) < 3) {
+        // Form diisi & dikirim < 3 detik -> ciri khas bot/script otomatis.
+        recordRegistrationAttempt($pdo, $ip);
+        $error = "Pengisian form terlalu cepat, sepertinya otomatis. Silakan coba lagi.";
+    } elseif (!isset($_SESSION["captcha_answer"]) || $captchaInput === "" || (int) $captchaInput !== (int) $_SESSION["captcha_answer"]) {
+        recordRegistrationAttempt($pdo, $ip);
+        $error = "Jawaban verifikasi salah, silakan coba lagi.";
     } elseif (strlen($username) < 3) {
         $error = "Username minimal 3 karakter.";
     } elseif (!preg_match('/^[a-zA-Z0-9_.]+$/', $username)) {
@@ -24,17 +45,23 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     } elseif ($password !== $confirm) {
         $error = "Konfirmasi password tidak cocok.";
     } else {
+        recordRegistrationAttempt($pdo, $ip);
+
         $stmt = $pdo->prepare("SELECT id FROM users WHERE username = :u");
         $stmt->execute([":u" => $username]);
         if ($stmt->fetch()) {
             $error = "Username sudah dipakai, silakan pilih yang lain.";
         } else {
-            $stmt = $pdo->prepare("INSERT INTO users (username, password_hash) VALUES (:u, :p)");
+            // is_admin SELALU 0 utk akun baru lewat form publik ini. Jadikan admin
+            // hanya lewat akun admin lain via manage_admin.php.
+            $stmt = $pdo->prepare("INSERT INTO users (username, password_hash, is_admin) VALUES (:u, :p, 0)");
             $stmt->execute([":u" => $username, ":p" => password_hash($password, PASSWORD_DEFAULT)]);
             $success = "Akun berhasil dibuat! Silakan login.";
         }
     }
 }
+
+[$captchaA, $captchaB] = newCaptcha();
 ?>
 <!DOCTYPE html>
 <html lang="id" data-bs-theme="dark">
@@ -54,18 +81,21 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         body { font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; }
         .brand-font { font-family: 'Bitter', Georgia, serif; }
         .auth-card { width: 100%; max-width: 400px; background: var(--bs-secondary-bg); border: 1px solid var(--bs-border-color); border-radius: 16px; padding: 2rem; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        /* Honeypot: disembunyikan dari manusia lewat CSS (bukan hidden/display:none murni,
+           supaya bot sederhana yg cuma skip field type=hidden tetap kejebak). */
+        .hp-field { position: absolute; left: -9999px; top: -9999px; opacity: 0; height: 0; overflow: hidden; }
     </style>
 </head>
 <body>
     <div class="auth-card">
         <h2 class="brand-font h4 text-center mb-1"><i class="bi bi-person-plus-fill text-primary me-1"></i> Daftar Akun</h2>
-        <p class="text-secondary text-center small mb-4">Buat akun baru untuk koleksi manga pribadi</p>
+        <p class="text-secondary text-center small mb-4">Buat akun baru untuk menandai (bookmark) & menyimpan progres baca</p>
 
         <?php if ($error): ?><div class="alert alert-danger py-2 small"><?= htmlspecialchars($error) ?></div><?php endif; ?>
         <?php if ($success): ?><div class="alert alert-success py-2 small"><?= htmlspecialchars($success) ?></div><?php endif; ?>
 
         <?php if (!$success): ?>
-        <form method="POST">
+        <form method="POST" autocomplete="off">
             <div class="mb-3">
                 <label class="form-label small fw-semibold">Username</label>
                 <input type="text" name="username" class="form-control" required value="<?= htmlspecialchars($_POST['username'] ?? '') ?>">
@@ -78,16 +108,28 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                 <label class="form-label small fw-semibold">Konfirmasi Password</label>
                 <input type="password" name="confirm_password" class="form-control" required minlength="6">
             </div>
-            <div class="mb-3">
-                <label class="form-label small fw-semibold">Kunci Pendaftaran</label>
-                <input type="password" name="secret_key" class="form-control" required placeholder="Dari admin / .env REGISTRATION_SECRET_KEY">
+
+            <!-- Honeypot: JANGAN dihapus, JANGAN diisi manusia. Nama field sengaja
+                 dibuat generik ("website") krn nama itu sering diisi otomatis oleh bot form-filler. -->
+            <div class="hp-field" aria-hidden="true">
+                <label>Website (biarkan kosong)</label>
+                <input type="text" name="website" tabindex="-1" autocomplete="off">
             </div>
+
+            <div class="mb-3">
+                <label class="form-label small fw-semibold">Verifikasi: berapa <?= $captchaA ?> + <?= $captchaB ?> ?</label>
+                <input type="text" inputmode="numeric" name="captcha" class="form-control" required placeholder="Jawaban">
+            </div>
+
             <button type="submit" class="btn btn-primary w-100 fw-semibold"><i class="bi bi-person-check me-1"></i> Daftar</button>
         </form>
         <?php endif; ?>
 
         <p class="text-center small text-secondary mt-3 mb-0">
             Sudah punya akun? <a href="login.php">Masuk di sini</a>
+        </p>
+        <p class="text-center small mt-1 mb-0">
+            <a href="index.php" class="text-secondary"><i class="bi bi-arrow-left me-1"></i>Jelajahi dulu sebagai tamu</a>
         </p>
     </div>
 </body>

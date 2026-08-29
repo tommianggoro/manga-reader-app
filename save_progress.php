@@ -1,4 +1,9 @@
 <?php
+// Progres baca ke DB: HANYA utk user yang login (guest pakai localStorage saja,
+// lihat JS di reader.php). Endpoint ini sengaja tetap requireAuth (bukan
+// optionalAuth) -- kalau session sudah habis di tengah baca, request ini akan
+// gagal senyap (fetch di reader.php tidak menampilkan error ke user), yang
+// penting localStorage tetap ke-update duluan di sisi client.
 require_once "config.php";
 requireAuth();
 

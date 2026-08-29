@@ -1,7 +1,7 @@
 <?php
 require_once "config.php";
 require_once "sync_functions.php";
-requireAuth();
+requireAdmin();
 
 $mangas = $pdo->query("SELECT manga_id, title, preferred_source FROM mangas ORDER BY title ASC")->fetchAll();
 

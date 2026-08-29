@@ -4,10 +4,12 @@
  * Mengembalikan chapter-chapter BARU (chapter_number > since) untuk satu manga,
  * supaya bisa disisipkan langsung ke daftar chapter tanpa reload halaman.
  * Sumber data tetap dari cron sync (cron_update.php), endpoint ini hanya membaca.
+ *
+ * PUBLIK (optionalAuth): daftar chapter adalah info publik, tidak butuh login.
  */
 
 require_once "config.php";
-requireAuth();
+optionalAuth();
 
 header("Content-Type: application/json; charset=utf-8");
 
@@ -34,7 +36,6 @@ if (!$manga) {
     exit;
 }
 
-$totalChapters = (int) $pdo->prepare("SELECT COUNT(*) FROM chapters WHERE manga_id = :id");
 $stmt = $pdo->prepare("SELECT COUNT(*) FROM chapters WHERE manga_id = :id");
 $stmt->execute([":id" => $mangaId]);
 $totalChapters = (int) $stmt->fetchColumn();

@@ -1,4 +1,6 @@
 <?php
+// Bookmark/favorit: milik SEMUA user yang login (bukan admin-only) -- tiap
+// user (termasuk admin) punya daftar favorit sendiri-sendiri.
 require_once "config.php";
 requireAuth();
 
