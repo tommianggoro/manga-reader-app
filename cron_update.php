@@ -1,19 +1,7 @@
 <?php
-/**
- * Headless Cron Script untuk memeriksa & mengunduh chapter terbaru untuk
- * seluruh manga di database, dari SEMUA sumber yg ter-bind ke tiap manga
- * (lihat manga_sources). Logika sync-nya sama persis dgn tombol "Cek Update
- * Semua Manga" di UI (lihat sync_functions.php -> genericSyncMangaAllSources).
- *
- * Cara menjalankan:
- * 1. CLI Terminal / Crontab Server:
- *    php cron_update.php
- * 2. Web Request / GitHub Actions / Webhook:
- *    http://yoursite.com/cron_update.php?key=manga_reader_secret_key_123
- */
-
 require_once "config.php";
 require_once "sync_functions.php";
+require_once "telegram_functions.php"; // BARU
 
 $isCli = (php_sapi_name() === 'cli');
 $keyInput = $_GET['key'] ?? null;
@@ -44,6 +32,7 @@ $mangas = $pdo->query("SELECT manga_id, title FROM mangas ORDER BY title ASC")->
 $totalManga = count($mangas);
 $totalNewChapters = 0;
 $results = [];
+$updatedMangaForNotif = []; // BARU: [manga_id => new_chapters_count], utk notif bookmark
 
 foreach ($mangas as $index => $m) {
     $mangaId = $m["manga_id"];
@@ -56,6 +45,11 @@ foreach ($mangas as $index => $m) {
         });
 
         $totalNewChapters += $syncResult["new_chapters"];
+
+        if ($syncResult["new_chapters"] > 0) {
+            $updatedMangaForNotif[$mangaId] = $syncResult["new_chapters"]; // BARU
+        }
+
         $results[] = [
             "manga_id" => $mangaId,
             "title" => $title,
@@ -76,9 +70,18 @@ foreach ($mangas as $index => $m) {
     }
 }
 
+// BARU: kirim notif Telegram personal ke user yang bookmark manga yg baru update.
+$notifiedUsers = [];
+try {
+    $notifiedUsers = notifyBookmarkUpdates($pdo, $updatedMangaForNotif);
+    cronLog("\n📨 Notifikasi bookmark Telegram terkirim ke " . count($notifiedUsers) . " user.");
+} catch (Exception $e) {
+    cronLog("\n⚠️ Gagal mengirim notifikasi bookmark Telegram: " . $e->getMessage());
+}
+
 $executionTime = round(microtime(true) - $startTime, 2);
 cronLog("\n=== CRONJOB SELESAI ({$executionTime}s) ===");
-cronLog("Total Manga: $totalManga | Total Chapter Baru: $totalNewChapters");
+cronLog("Total Manga: $totalManga | Total Chapter Baru: $totalNewChapters | Notif Bookmark: " . count($notifiedUsers));
 
 if (!$isCli) {
     echo json_encode([
@@ -86,6 +89,7 @@ if (!$isCli) {
         "execution_time_seconds" => $executionTime,
         "total_manga" => $totalManga,
         "total_new_chapters" => $totalNewChapters,
+        "bookmark_notifications_sent" => count($notifiedUsers), // BARU
         "results" => $results
     ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 }

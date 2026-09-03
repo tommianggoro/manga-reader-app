@@ -1,5 +1,6 @@
 <?php
 require_once "config.php";
+require_once "telegram_functions.php"; // BARU
 requireAuth();
 
 $errorPassword = "";
@@ -56,13 +57,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     mkdir(AVATAR_UPLOAD_DIR, 0755, true);
                 }
 
-                // Nama file: user_{id}_{waktu}.{ext} -- supaya browser tidak nyangkut
-                // cache foto lama, dan tidak ada bentrok antar-user.
                 $ext = $allowedTypes[$mimeType];
                 $filename = "user_" . $userId . "_" . time() . "." . $ext;
                 $destination = AVATAR_UPLOAD_DIR . "/" . $filename;
 
-                // Hapus foto lama milik user ini (kalau ada) supaya folder tidak menumpuk.
                 $stmt = $pdo->prepare("SELECT profile_photo_url FROM users WHERE id = :id");
                 $stmt->execute([":id" => $userId]);
                 $oldPhoto = $stmt->fetchColumn();
@@ -96,6 +94,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         $successPhoto = "Foto profil dikembalikan ke default.";
     }
 }
+
+// ==== BARU: Ambil status Telegram user saat ini (utk render kartu di bawah) ====
+$stmt = $pdo->prepare("SELECT telegram_chat_id, telegram_notify_enabled, telegram_linked_at FROM users WHERE id = :id");
+$stmt->execute([":id" => $userId]);
+$telegramStatus = $stmt->fetch();
+$isTelegramLinked = !empty($telegramStatus["telegram_chat_id"]);
+$isTelegramNotifyOn = $isTelegramLinked && !empty($telegramStatus["telegram_notify_enabled"]);
 ?>
 <!DOCTYPE html>
 <html lang="id" data-bs-theme="dark">
@@ -129,6 +134,19 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
             border: 1px solid var(--bs-border-color); background: var(--bs-secondary-bg); color: var(--bs-body-color);
         }
+        /* BARU: styling kartu Telegram */
+        .telegram-icon-box {
+            width: 40px; height: 40px; border-radius: 50%; background: var(--bs-tertiary-bg);
+            color: #29a9eb; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; flex-shrink: 0;
+        }
+        .telegram-code-box {
+            background: var(--bs-tertiary-bg); border: 1px dashed var(--bs-border-color);
+            border-radius: 10px; padding: 0.85rem 1rem; text-align: center;
+        }
+        .telegram-code-box code {
+            font-size: 1.15rem; color: var(--bs-primary); font-weight: 700; letter-spacing: 0.05em;
+        }
+        .form-switch .form-check-input { width: 2.5em; height: 1.4em; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -178,6 +196,48 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
         <?php endif; ?>
     </div>
 
+    <!-- BARU: Notifikasi Telegram -->
+    <div class="profile-card mb-3">
+        <div class="d-flex align-items-center gap-2 mb-3">
+            <div class="telegram-icon-box"><i class="bi bi-telegram"></i></div>
+            <div>
+                <h2 class="h6 fw-bold mb-0">Notifikasi Telegram</h2>
+                <div class="small text-secondary">Opsional — dapat notif saat manga bookmark-mu update</div>
+            </div>
+        </div>
+
+        <div id="telegramAlertBox"></div>
+
+        <!-- State: BELUM terhubung -->
+        <div id="telegramNotLinked" style="<?= $isTelegramLinked ? 'display:none;' : '' ?>">
+            <p class="small text-secondary mb-3">
+                Hubungkan akun Telegram-mu untuk mendapat notifikasi otomatis setiap kali ada chapter baru
+                dari manga yang kamu favoritkan/bookmark.
+            </p>
+            <button type="button" class="btn btn-primary btn-sm fw-semibold" id="generateCodeBtn">
+                <i class="bi bi-telegram me-1"></i> Hubungkan Akun Telegram
+            </button>
+            <div class="telegram-code-box mt-3" id="codeResultBox" style="display:none;"></div>
+        </div>
+
+        <!-- State: SUDAH terhubung -->
+        <div id="telegramLinked" style="<?= $isTelegramLinked ? '' : 'display:none;' ?>">
+            <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+                <span class="badge text-bg-success"><i class="bi bi-check-circle-fill me-1"></i> Akun Telegram Terhubung</span>
+                <?php if (!empty($telegramStatus["telegram_linked_at"])): ?>
+                    <span class="small text-secondary">sejak <?= htmlspecialchars(date("d M Y", strtotime($telegramStatus["telegram_linked_at"]))) ?></span>
+                <?php endif; ?>
+            </div>
+            <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" id="notifyToggle" <?= $isTelegramNotifyOn ? 'checked' : '' ?>>
+                <label class="form-check-label small fw-medium" for="notifyToggle">Aktifkan notifikasi chapter baru</label>
+            </div>
+            <button type="button" class="btn btn-outline-danger btn-sm" id="unlinkBtn">
+                <i class="bi bi-x-circle me-1"></i> Putuskan Koneksi Telegram
+            </button>
+        </div>
+    </div>
+
     <!-- Ganti Password -->
     <div class="profile-card">
         <h2 class="h6 fw-bold mb-3">Ganti Password</h2>
@@ -206,15 +266,99 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 </div>
 
 <script>
-    // Logout via AJAX -- profile.php wajib login, jadi setelah logout diarahkan
-    // ke index.php (bukan reload di tempat, krn halaman ini akan langsung
-    // redirect ke login.php lagi kalau di-reload sbg guest).
+    // Logout via AJAX
     async function logoutUser(fallbackUrl) {
         try {
             await fetch('logout_api.php', { method: 'POST' });
         } catch (err) { /* tetap lanjut redirect walau request gagal */ }
         window.location.href = fallbackUrl || 'index.php';
     }
+
+    // ==== BARU: Logika Notifikasi Telegram ====
+    const generateCodeBtn = document.getElementById("generateCodeBtn");
+    const codeResultBox = document.getElementById("codeResultBox");
+    const notifyToggle = document.getElementById("notifyToggle");
+    const unlinkBtn = document.getElementById("unlinkBtn");
+    const telegramAlertBox = document.getElementById("telegramAlertBox");
+
+    function showTelegramAlert(message, type = "danger") {
+        telegramAlertBox.innerHTML = `<div class="alert alert-${type} py-2 small mb-3">${message}</div>`;
+    }
+
+    generateCodeBtn?.addEventListener("click", async () => {
+        generateCodeBtn.disabled = true;
+        const originalHtml = generateCodeBtn.innerHTML;
+        generateCodeBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-1"></span> Memproses...`;
+
+        try {
+            const res = await fetch("telegram_link_request.php", { method: "POST" });
+            const data = await res.json();
+
+            if (!data.success) {
+                showTelegramAlert(data.error || "Gagal generate kode.");
+                return;
+            }
+
+            codeResultBox.style.display = "block";
+
+            if (data.deep_link) {
+                // Kasus normal: bot username sudah dikonfigurasi -> tombol klik langsung.
+                codeResultBox.innerHTML = `
+                    <div class="small text-secondary mb-3">Klik tombol di bawah, Telegram akan terbuka otomatis dan langsung menghubungkan akunmu:</div>
+                    <a href="${data.deep_link}" target="_blank" rel="noopener" class="btn btn-primary btn-sm fw-semibold w-100">
+                        <i class="bi bi-send-fill me-1"></i> Buka Telegram & Hubungkan
+                    </a>
+                    <div class="small text-secondary mt-3 mb-1">Atau kirim manual pesan ini ke bot:</div>
+                    <code>/start ${data.code}</code>
+                    <div class="small text-secondary mt-2">Kode berlaku ${data.ttl_minutes} menit.</div>
+                `;
+            } else {
+                // Fallback kalau TELEGRAM_BOT_USERNAME belum diisi di .env server.
+                codeResultBox.innerHTML = `
+                    <div class="small text-secondary mb-2">Cari bot Telegram kami, lalu kirim pesan berikut dalam ${data.ttl_minutes} menit:</div>
+                    <code>/link ${data.code}</code>
+                `;
+            }
+        } catch (err) {
+            showTelegramAlert("Gagal generate kode: " + err.message);
+        } finally {
+            generateCodeBtn.disabled = false;
+            generateCodeBtn.innerHTML = originalHtml;
+        }
+    });
+
+    notifyToggle?.addEventListener("change", async () => {
+        const previousState = !notifyToggle.checked;
+        try {
+            const res = await fetch("telegram_toggle_notify.php", { method: "POST" });
+            const data = await res.json();
+            if (!data.success) {
+                showTelegramAlert(data.error || "Gagal update status notifikasi.");
+                notifyToggle.checked = previousState;
+            }
+        } catch (err) {
+            showTelegramAlert("Gagal update: " + err.message);
+            notifyToggle.checked = previousState;
+        }
+    });
+
+    unlinkBtn?.addEventListener("click", async () => {
+        if (!confirm("Putuskan koneksi akun Telegram? Kamu tidak akan menerima notifikasi lagi sampai menghubungkan ulang.")) return;
+        unlinkBtn.disabled = true;
+        try {
+            const res = await fetch("telegram_unlink.php", { method: "POST" });
+            const data = await res.json();
+            if (!data.success) {
+                showTelegramAlert(data.error || "Gagal memutuskan koneksi.");
+                unlinkBtn.disabled = false;
+                return;
+            }
+            window.location.reload();
+        } catch (err) {
+            showTelegramAlert("Gagal: " + err.message);
+            unlinkBtn.disabled = false;
+        }
+    });
 </script>
 </body>
 </html>

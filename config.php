@@ -21,6 +21,7 @@ try {
 define("MAX_LOGIN_ATTEMPTS", (int) env("MAX_LOGIN_ATTEMPTS", 5));
 define("LOGIN_LOCKOUT_MINUTES", (int) env("LOGIN_LOCKOUT_MINUTES", 15));
 define("CRON_SECRET_KEY", env("CRON_SECRET_KEY", ""));
+define("TELEGRAM_BOT_USERNAME", env("TELEGRAM_BOT_USERNAME", ""));
 
 // Batas registrasi per-IP (anti abuse bot/cron/curl -- registrasi publik,
 // tidak lagi pakai secret key). Bisa disetel lewat .env kalau perlu.
