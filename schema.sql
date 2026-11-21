@@ -132,13 +132,18 @@ CREATE TABLE `reading_progress` (
 
 -- --------------------------------------------------------
 
--- Tabel `users`: is_admin & profile_photo_url baru -- lihat catatan di atas file.
+-- Tabel `users`: is_admin, profile_photo_url, telegram columns
 CREATE TABLE `users` (
   `id` int(11) NOT NULL,
   `username` varchar(50) NOT NULL,
   `password_hash` varchar(255) NOT NULL,
   `is_admin` tinyint(1) NOT NULL DEFAULT 0,
   `profile_photo_url` varchar(255) DEFAULT NULL,
+  `telegram_chat_id` varchar(64) DEFAULT NULL,
+  `telegram_link_code` varchar(16) DEFAULT NULL,
+  `telegram_link_code_expires` datetime DEFAULT NULL,
+  `telegram_notify_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `telegram_linked_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -151,7 +156,31 @@ CREATE TABLE `user_manga_state` (
   `is_favorite` tinyint(1) NOT NULL DEFAULT 0,
   `last_read_chapter_id` varchar(191) DEFAULT NULL,
   `last_read_chapter_number` decimal(8,2) DEFAULT NULL,
+  `last_notified_chapter_number` decimal(8,2) DEFAULT NULL,
   `last_read_at` timestamp NULL DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+-- State table for Telegram bot poller (tracks last processed update_id)
+CREATE TABLE `telegram_bot_state` (
+  `id` tinyint NOT NULL DEFAULT 1,
+  `last_update_id` bigint NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+-- Trending manga cache (populated by external scraper/cron)
+CREATE TABLE `trending_manga` (
+  `id` int(11) NOT NULL,
+  `source` varchar(32) NOT NULL,
+  `source_ref` varchar(255) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `cover_image_url` varchar(500) DEFAULT NULL,
+  `latest_chapter_number` decimal(8,2) DEFAULT NULL,
+  `rating` decimal(3,1) DEFAULT NULL,
+  `rank_position` int(11) NOT NULL DEFAULT 0,
+  `fetched_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -200,12 +229,21 @@ ALTER TABLE `reading_progress`
 
 ALTER TABLE `users`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `username` (`username`);
+  ADD UNIQUE KEY `username` (`username`),
+  ADD UNIQUE KEY `uniq_telegram_chat_id` (`telegram_chat_id`);
 
 ALTER TABLE `user_manga_state`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uniq_user_manga` (`user_id`,`manga_id`),
   ADD KEY `idx_manga` (`manga_id`);
+
+ALTER TABLE `telegram_bot_state`
+  ADD PRIMARY KEY (`id`);
+
+ALTER TABLE `trending_manga`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uniq_source_ref_trending` (`source`,`source_ref`),
+  ADD KEY `idx_source_rank` (`source`,`rank_position`);
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -218,6 +256,7 @@ ALTER TABLE `chapter_sync_cursor` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `manga_sync_checkpoint` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `chapter_images` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `reading_progress` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `trending_manga` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `users` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `user_manga_state` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 

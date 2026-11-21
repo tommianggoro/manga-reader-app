@@ -118,6 +118,21 @@ $executionTime = round(microtime(true) - $startTime, 2);
 cronLog("\n=== CRONJOB SELESAI ({$executionTime}s) ===");
 cronLog("Total Manga: $totalManga | Total Chapter Baru: $totalNewChapters");
 
+// ==== Trigger per-user notifications (async via HTTP request) ====
+// Hanya jalankan jika ada chapter baru dan bukan CLI (biar tidak nambah waktu response web)
+// Kalau CLI, user bisa jalanin cron_notify_users.php manual atau lewat wrapper script.
+if (!$isCli && $totalNewChapters > 0) {
+    $notifyUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://" . $_SERVER['HTTP_HOST'] . dirname($_SERVER['SCRIPT_NAME']) . "/cron_notify_users.php?key=" . CRON_SECRET_KEY;
+    cronLog("Memicu notifikasi per-user: $notifyUrl");
+
+    $ch = curl_init($notifyUrl);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5); // timeout cepat, biarkan jalan di background
+    curl_setopt($ch, CURLOPT_HEADER, false);
+    curl_exec($ch);
+    curl_close($ch);
+}
+
 if (!$isCli) {
     echo json_encode([
         "success" => true,

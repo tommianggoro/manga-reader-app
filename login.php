@@ -11,7 +11,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && !$lockedUntil) {
     $username = trim($_POST["username"] ?? "");
     $password = $_POST["password"] ?? "";
 
-    $stmt = $pdo->prepare("SELECT id, username, password_hash, is_admin, profile_photo_url FROM users WHERE username = :u");
+    $stmt = $pdo->prepare("SELECT id, username, password_hash, is_admin, profile_photo_url, telegram_chat_id FROM users WHERE username = :u");
     $stmt->execute([":u" => $username]);
     $user = $stmt->fetch();
 
@@ -24,6 +24,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && !$lockedUntil) {
         $_SESSION["username"] = $user["username"];
         $_SESSION["is_admin"] = (bool) $user["is_admin"];
         $_SESSION["profile_photo_url"] = $user["profile_photo_url"];
+        $_SESSION["telegram_chat_id"] = $user["telegram_chat_id"];
 
         $redirectTo = $_GET["redirect"] ?? "index.php";
         // Cegah open redirect: hanya izinkan path relatif internal (.php), bukan URL luar.

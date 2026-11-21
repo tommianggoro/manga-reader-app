@@ -111,7 +111,7 @@ class ShinigamiSource implements MangaSourceInterface
 
             if ($isTransient && $attempt < $maxRetries) {
                 $delay = $baseDelay * $attempt; // exponential backoff: 1s, 2s, 3s
-                error_log("[Shinigami] HTTP $httpCode for $url, retry $attempt/$maxRetries after ${delay}ms");
+                error_log("[Shinigami] HTTP $httpCode for $url, retry $attempt/$maxRetries after {$delay}ms");
                 usleep($delay * 1000);
                 continue;
             }
