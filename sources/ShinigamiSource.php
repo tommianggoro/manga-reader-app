@@ -73,22 +73,55 @@ class ShinigamiSource implements MangaSourceInterface
 
     private function apiGetFull(string $url): array
     {
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (compatible; PersonalArchiveBot/1.0)");
-        curl_setopt($ch, CURLOPT_TIMEOUT, 20);
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
+        $maxRetries = 3;
+        $baseDelay = 1000; // 1 detik
 
-        if ($httpCode !== 200 || !$response) {
-            throw new Exception("Gagal memanggil API Shinigami: $url (HTTP $httpCode)");
+        for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_USERAGENT, "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36");
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                "Accept: application/json, text/plain, */*",
+                "Accept-Language: id-ID,id;q=0.9,en;q=0.8",
+                "Accept-Encoding: gzip, deflate, br",
+                "Connection: keep-alive",
+                "Sec-Fetch-Dest: empty",
+                "Sec-Fetch-Mode: cors",
+                "Sec-Fetch-Site: cross-site",
+            ]);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+            curl_setopt($ch, CURLOPT_ENCODING, "gzip, deflate, br");
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+
+            // Retry on transient errors: 429 (rate limit), 502/503/504 (gateway), network errors
+            $isTransient = in_array($httpCode, [429, 502, 503, 504]) || $curlError !== "";
+
+            if ($httpCode === 200 && $response) {
+                $data = json_decode($response, true);
+                if ($data && ($data["retcode"] ?? -1) === 0) {
+                    return $data; // termasuk 'data' & 'meta'
+                }
+                // Invalid response structure - don't retry, throw
+                throw new Exception("Response API Shinigami tidak valid: $url");
+            }
+
+            if ($isTransient && $attempt < $maxRetries) {
+                $delay = $baseDelay * $attempt; // exponential backoff: 1s, 2s, 3s
+                error_log("[Shinigami] HTTP $httpCode for $url, retry $attempt/$maxRetries after ${delay}ms");
+                usleep($delay * 1000);
+                continue;
+            }
+
+            // Non-transient or max retries exceeded
+            throw new Exception("Gagal memanggil API Shinigami: $url (HTTP $httpCode" . ($curlError ? "; curl: $curlError" : "") . ")");
         }
-        $data = json_decode($response, true);
-        if (!$data || $data["retcode"] !== 0) {
-            throw new Exception("Response API Shinigami tidak valid: $url");
-        }
-        return $data; // termasuk 'data' & 'meta'
+
+        // Should not reach here
+        throw new Exception("Gagal memanggil API Shinigami: $url (max retries exceeded)");
     }
 
     private function apiGet(string $url): array
