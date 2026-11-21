@@ -80,19 +80,6 @@ CREATE TABLE `chapter_sync_cursor` (
 
 -- --------------------------------------------------------
 
--- Tabel checkpoint untuk resume sync manga di tengah fan-out multi-source
--- (dipakai saat maxChaptersPerRun dibatasi, mis. di GitHub Actions cron)
-CREATE TABLE `manga_sync_checkpoint` (
-  `id` int(11) NOT NULL,
-  `manga_id` varchar(191) NOT NULL,
-  `current_source_index` int(11) NOT NULL DEFAULT 0,
-  `next_chapter_refs` json NOT NULL,
-  `max_chapters_per_run` int(11) NOT NULL,
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
 CREATE TABLE `chapter_images` (
   `id` int(11) NOT NULL,
   `chapter_id` varchar(191) NOT NULL,
@@ -160,6 +147,29 @@ CREATE TABLE `user_manga_state` (
   `last_read_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+-- State table for Telegram bot poller (tracks last processed update_id)
+CREATE TABLE `telegram_bot_state` (
+  `id` tinyint NOT NULL DEFAULT 1,
+  `last_update_id` bigint NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+-- Trending manga cache (populated by external scraper/cron)
+CREATE TABLE `trending_manga` (
+  `id` int(11) NOT NULL,
+  `source` varchar(32) NOT NULL,
+  `source_ref` varchar(255) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `cover_image_url` varchar(500) DEFAULT NULL,
+  `latest_chapter_number` decimal(8,2) DEFAULT NULL,
+  `rating` decimal(3,1) DEFAULT NULL,
+  `rank_position` int(11) NOT NULL DEFAULT 0,
+  `fetched_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 --
 -- Indexes for dumped tables
 --
@@ -184,10 +194,6 @@ ALTER TABLE `chapter_sync_cursor`
   ADD UNIQUE KEY `uniq_source_chapter` (`source`,`source_chapter_ref`),
   ADD KEY `idx_manga_source` (`manga_id`,`source`);
 
-ALTER TABLE `manga_sync_checkpoint`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `uniq_manga_checkpoint` (`manga_id`);
-
 ALTER TABLE `chapter_images`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uniq_chapter_page` (`chapter_id`,`page_number`),
@@ -207,12 +213,20 @@ ALTER TABLE `reading_progress`
 ALTER TABLE `users`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `username` (`username`),
-  ADD UNIQUE KEY `idx_telegram_chat_id` (`telegram_chat_id`);
+  ADD UNIQUE KEY `uniq_telegram_chat_id` (`telegram_chat_id`);
 
 ALTER TABLE `user_manga_state`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uniq_user_manga` (`user_id`,`manga_id`),
   ADD KEY `idx_manga` (`manga_id`);
+
+ALTER TABLE `telegram_bot_state`
+  ADD PRIMARY KEY (`id`);
+
+ALTER TABLE `trending_manga`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uniq_source_ref_trending` (`source`,`source_ref`),
+  ADD KEY `idx_source_rank` (`source`,`rank_position`);
 
 --
 -- AUTO_INCREMENT for dumped tables
@@ -222,9 +236,9 @@ ALTER TABLE `mangas` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `manga_sources` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `chapters` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `chapter_sync_cursor` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-ALTER TABLE `manga_sync_checkpoint` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `chapter_images` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `reading_progress` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `trending_manga` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `users` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `user_manga_state` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
