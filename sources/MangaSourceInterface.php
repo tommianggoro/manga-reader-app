@@ -81,4 +81,11 @@ interface MangaSourceInterface
      * Kembalikan array of: ['ref', 'title', 'cover_image_url', 'latest_chapter_number', 'rating']
      */
     public function getTrending(int $limit = 3): array;
+
+    /**
+     * Jeda antar request ke sumber ini (millisecond).
+     * Default 300ms. Sumber yang lebih sensitif (scraping) bisa override ke nilai
+     * lebih tinggi, sumber API stabil bisa override ke nilai lebih rendah.
+     */
+    public function getRateLimitDelayMs(): int;
 }

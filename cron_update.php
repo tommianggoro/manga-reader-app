@@ -18,6 +18,14 @@ require_once "sync_functions.php";
 $isCli = (php_sapi_name() === 'cli');
 $keyInput = $_GET['key'] ?? null;
 
+// Optional: max chapters per run per source (for batching long syncs)
+// Usage: cron_update.php?key=...&max_chapters=50
+$maxChaptersPerRun = isset($_GET['max_chapters']) ? max(1, (int)$_GET['max_chapters']) : null;
+
+// Optional: parallel mode - fork one process per source (requires pcntl, Linux only)
+// Usage: cron_update.php?key=...&max_chapters=50&parallel=1
+$parallel = isset($_GET['parallel']) && $_GET['parallel'] === '1';
+
 if (!$isCli && $keyInput !== CRON_SECRET_KEY) {
     header("HTTP/1.1 403 Forbidden");
     header("Content-Type: application/json; charset=utf-8");
@@ -53,18 +61,48 @@ foreach ($mangas as $index => $m) {
     try {
         $syncResult = genericSyncMangaAllSources($pdo, $mangaId, function ($chapterNumber) {
             cronLog("  ✓ Chapter $chapterNumber disimpan");
-        });
+        }, $maxChaptersPerRun, $parallel);
 
         $totalNewChapters += $syncResult["new_chapters"];
+
+        // Check for source-level errors (per-source isolation)
+        $sourceErrors = $syncResult["source_errors"] ?? [];
+        $hasSourceErrors = !empty($sourceErrors);
+
+        // Collect per-chapter errors from each source
+        $allChapterErrors = [];
+        foreach ($syncResult["per_source"] ?? [] as $src => $srcResult) {
+            if (!empty($srcResult["errors"])) {
+                foreach ($srcResult["errors"] as $err) {
+                    $allChapterErrors[] = "[$src] " . $err["chapter_ref"] . ": " . $err["error"];
+                }
+            }
+        }
+        $hasChapterErrors = !empty($allChapterErrors);
+
         $results[] = [
             "manga_id" => $mangaId,
             "title" => $title,
             "new_chapters" => $syncResult["new_chapters"],
             "sources" => array_keys($syncResult["per_source"]),
-            "status" => "success"
+            "status" => ($hasSourceErrors || $hasChapterErrors) ? "partial" : "success",
+            "limited" => $syncResult["limited"] ?? false,
+            "next_chapter_refs" => $syncResult["next_chapter_refs"] ?? [],
+            "source_errors" => $sourceErrors,
+            "chapter_errors" => $allChapterErrors,
         ];
 
-        cronLog("  -> $title selesai: {$syncResult['new_chapters']} chapter baru dari " . count($syncResult["per_source"]) . " sumber.");
+        $msg = "  -> $title selesai: {$syncResult['new_chapters']} chapter baru dari " . count($syncResult["per_source"]) . " sumber.";
+        if ($syncResult["limited"] ?? false) {
+            $msg .= " (LIMITED - next refs: " . implode(", ", array_map(fn($s, $r) => "$s:$r", array_keys($syncResult["next_chapter_refs"]), $syncResult["next_chapter_refs"])) . ")";
+        }
+        if ($hasSourceErrors) {
+            $msg .= " | Source errors: " . implode("; ", array_map(fn($s, $e) => "$s: $e", array_keys($sourceErrors), $sourceErrors));
+        }
+        if ($hasChapterErrors) {
+            $msg .= " | Chapter errors: " . count($allChapterErrors) . " chapter(s) failed";
+        }
+        cronLog($msg);
     } catch (Exception $e) {
         cronLog("  ❌ ERROR: " . $e->getMessage());
         $results[] = [

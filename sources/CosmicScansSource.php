@@ -22,6 +22,7 @@ class CosmicScansSource implements MangaSourceInterface
 
     public function getKey(): string { return "cosmicscans"; }
     public function getLabel(): string { return "CosmicScans"; }
+    public function getRateLimitDelayMs(): int { return 200; } // JSON API, stable
 
     public function detect(string $input): ?string
     {

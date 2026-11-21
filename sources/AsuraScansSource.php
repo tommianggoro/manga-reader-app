@@ -38,6 +38,7 @@ class AsuraScansSource implements MangaSourceInterface
 
     public function getKey(): string { return "asura"; }
     public function getLabel(): string { return "AsuraScans"; }
+    public function getRateLimitDelayMs(): int { return 500; } // HTML scraping, be polite
 
     public function detect(string $input): ?string
     {

@@ -20,6 +20,7 @@ class KomikuSource implements MangaSourceInterface
 
     public function getKey(): string { return "komiku"; }
     public function getLabel(): string { return "Komiku"; }
+    public function getRateLimitDelayMs(): int { return 500; } // HTML scraping, be polite
 
     public function detect(string $input): ?string
     {

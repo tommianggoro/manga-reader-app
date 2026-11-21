@@ -12,6 +12,7 @@ class ShinigamiSource implements MangaSourceInterface
 
     public function getKey(): string { return "shngm"; }
     public function getLabel(): string { return "Shinigami"; }
+    public function getRateLimitDelayMs(): int { return 300; } // API-based, moderate
 
     public function detect(string $input): ?string
     {
