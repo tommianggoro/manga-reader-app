@@ -132,7 +132,7 @@ CREATE TABLE `reading_progress` (
 
 -- --------------------------------------------------------
 
--- Tabel `users`: is_admin & profile_photo_url baru -- lihat catatan di atas file.
+-- Tabel `users`: is_admin, profile_photo_url, telegram columns
 CREATE TABLE `users` (
   `id` int(11) NOT NULL,
   `username` varchar(50) NOT NULL,
@@ -140,6 +140,10 @@ CREATE TABLE `users` (
   `is_admin` tinyint(1) NOT NULL DEFAULT 0,
   `profile_photo_url` varchar(255) DEFAULT NULL,
   `telegram_chat_id` varchar(64) DEFAULT NULL,
+  `telegram_link_code` varchar(16) DEFAULT NULL,
+  `telegram_link_code_expires` datetime DEFAULT NULL,
+  `telegram_notify_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `telegram_linked_at` timestamp NULL DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -203,7 +207,7 @@ ALTER TABLE `reading_progress`
 ALTER TABLE `users`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `username` (`username`),
-  ADD KEY `idx_telegram_chat_id` (`telegram_chat_id`);
+  ADD UNIQUE KEY `idx_telegram_chat_id` (`telegram_chat_id`);
 
 ALTER TABLE `user_manga_state`
   ADD PRIMARY KEY (`id`),
