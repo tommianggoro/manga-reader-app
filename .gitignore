@@ -437,3 +437,7 @@ FodyWeavers.xsd
 #Exclude file
 generate_password_hash.php
 *.md
+
+# Temporary scripts & migration files
+dump_*.php
+migration_*.sql
