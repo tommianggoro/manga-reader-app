@@ -39,7 +39,11 @@ jobs:
 
           site_url = os.environ["SITE_URL"].rstrip("/")
           key = os.environ["CRON_SECRET_KEY"]
-          target_url = f"{site_url}/cron_update.php?key={key}"
+          # max_chapters per source per run - prevents GitHub Actions 120s timeout on large syncs
+          max_chapters = os.environ.get("MAX_CHAPTERS_PER_RUN", "50")
+          # parallel mode - fork one process per source (requires pcntl, Linux only)
+          parallel = os.environ.get("ENABLE_PARALLEL", "false").lower() === "true"
+          target_url = f"{site_url}/cron_update.php?key={key}&max_chapters={max_chapters}&parallel={parallel ? '1' : '0'}"
 
           bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
           chat_id = os.environ.get("TELEGRAM_CHAT_ID")

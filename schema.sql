@@ -80,6 +80,19 @@ CREATE TABLE `chapter_sync_cursor` (
 
 -- --------------------------------------------------------
 
+-- Tabel checkpoint untuk resume sync manga di tengah fan-out multi-source
+-- (dipakai saat maxChaptersPerRun dibatasi, mis. di GitHub Actions cron)
+CREATE TABLE `manga_sync_checkpoint` (
+  `id` int(11) NOT NULL,
+  `manga_id` varchar(191) NOT NULL,
+  `current_source_index` int(11) NOT NULL DEFAULT 0,
+  `next_chapter_refs` json NOT NULL,
+  `max_chapters_per_run` int(11) NOT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
 CREATE TABLE `chapter_images` (
   `id` int(11) NOT NULL,
   `chapter_id` varchar(191) NOT NULL,
@@ -165,6 +178,10 @@ ALTER TABLE `chapter_sync_cursor`
   ADD UNIQUE KEY `uniq_source_chapter` (`source`,`source_chapter_ref`),
   ADD KEY `idx_manga_source` (`manga_id`,`source`);
 
+ALTER TABLE `manga_sync_checkpoint`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uniq_manga_checkpoint` (`manga_id`);
+
 ALTER TABLE `chapter_images`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `uniq_chapter_page` (`chapter_id`,`page_number`),
@@ -198,6 +215,7 @@ ALTER TABLE `mangas` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `manga_sources` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `chapters` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `chapter_sync_cursor` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `manga_sync_checkpoint` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `chapter_images` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `reading_progress` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `users` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;

@@ -1,0 +1,362 @@
+{
+  ".github/workflows/deploy.yml": {
+    "mtime": 1787653806.2449324,
+    "seen": 1795230575.5881777,
+    "ast_hash": "c4c2866d052d322917e4e0260f76b20e",
+    "semantic_hash": "c4c2866d052d322917e4e0260f76b20e"
+  },
+  ".github/workflows/manga_cron.yml": {
+    "mtime": 1795229763.788198,
+    "seen": 1795230575.588184,
+    "ast_hash": "929b9ef1def392c026bc7136a2930b69",
+    "semantic_hash": "929b9ef1def392c026bc7136a2930b69"
+  },
+  ".github/workflows/manga_trending_cron.yml": {
+    "mtime": 1787720295.118596,
+    "seen": 1795230575.588187,
+    "ast_hash": "f3bb2ac35221a28be50e903dc52f1b80",
+    "semantic_hash": "f3bb2ac35221a28be50e903dc52f1b80"
+  },
+  "add_manga.php": {
+    "mtime": 1788014014.298171,
+    "seen": 1795230575.588188,
+    "ast_hash": "29393211336ab33330a7c28096bd361b",
+    "semantic_hash": "29393211336ab33330a7c28096bd361b"
+  },
+  "check_decimal_chapters.php": {
+    "mtime": 1786085551.5849955,
+    "seen": 1795230575.588189,
+    "ast_hash": "7fbf42ec8b5e2d984e4efa107dcba3f3",
+    "semantic_hash": "7fbf42ec8b5e2d984e4efa107dcba3f3"
+  },
+  "check_manga_updates.php": {
+    "mtime": 1788014014.2991507,
+    "seen": 1795230575.5881898,
+    "ast_hash": "062f0dd46c6b8123ff9ca3932f7d8f66",
+    "semantic_hash": "062f0dd46c6b8123ff9ca3932f7d8f66"
+  },
+  "check_updates.php": {
+    "mtime": 1788014014.3001492,
+    "seen": 1795230575.588191,
+    "ast_hash": "53ab542da327c3cc9b8949c269ef3620",
+    "semantic_hash": "53ab542da327c3cc9b8949c269ef3620"
+  },
+  "config.php": {
+    "mtime": 1795229763.789196,
+    "seen": 1795230575.5881917,
+    "ast_hash": "bacbaa2860f9ddd4cbaa4a0be198160a",
+    "semantic_hash": "bacbaa2860f9ddd4cbaa4a0be198160a"
+  },
+  "crawl.php": {
+    "mtime": 1788014014.3011496,
+    "seen": 1795230575.5881925,
+    "ast_hash": "dd4cd81fa79f5739421d4ee8f985cd7d",
+    "semantic_hash": "dd4cd81fa79f5739421d4ee8f985cd7d"
+  },
+  "crawl_all.php": {
+    "mtime": 1788014014.30215,
+    "seen": 1795230575.5881937,
+    "ast_hash": "b2ae9dc0beb8caf6de15b9a06f4d72e4",
+    "semantic_hash": "b2ae9dc0beb8caf6de15b9a06f4d72e4"
+  },
+  "crawler.php": {
+    "mtime": 1788014014.30215,
+    "seen": 1795230575.5881944,
+    "ast_hash": "b17eac9f7a0bd40715aeb3de1d688c0c",
+    "semantic_hash": "b17eac9f7a0bd40715aeb3de1d688c0c"
+  },
+  "cron_trending.php": {
+    "mtime": 1787720295.119594,
+    "seen": 1795230575.5881953,
+    "ast_hash": "edcd087b1e321ca3251906e1083299da",
+    "semantic_hash": "edcd087b1e321ca3251906e1083299da"
+  },
+  "cron_update.php": {
+    "mtime": 1795229763.7911973,
+    "seen": 1795230575.588196,
+    "ast_hash": "1cbf63f659cbe4d113aadb0ac5fc783a",
+    "semantic_hash": "1cbf63f659cbe4d113aadb0ac5fc783a"
+  },
+  "delete_manga.php": {
+    "mtime": 1788014014.3031507,
+    "seen": 1795230575.5881968,
+    "ast_hash": "deedf3f0636ecc81958d1dde2d4c36d4",
+    "semantic_hash": "deedf3f0636ecc81958d1dde2d4c36d4"
+  },
+  "docs/manifest.json": {
+    "mtime": 1785565599.8817742,
+    "seen": 1795230575.588198,
+    "ast_hash": "b66a3b7e568ecac2583aa49b5e20d240",
+    "semantic_hash": "b66a3b7e568ecac2583aa49b5e20d240"
+  },
+  "env_loader.php": {
+    "mtime": 1785470378.9553576,
+    "seen": 1795230575.588199,
+    "ast_hash": "15d242020f352b4726fd0ea34c840a1e",
+    "semantic_hash": "15d242020f352b4726fd0ea34c840a1e"
+  },
+  "export.php": {
+    "mtime": 1788014014.3031507,
+    "seen": 1795230575.5881996,
+    "ast_hash": "25e1aea19d097687badf9f6dfb4a23e6",
+    "semantic_hash": "25e1aea19d097687badf9f6dfb4a23e6"
+  },
+  "import.php": {
+    "mtime": 1788014014.305151,
+    "seen": 1795230575.5882008,
+    "ast_hash": "5eab250dc5b8f86544de48d650619e74",
+    "semantic_hash": "5eab250dc5b8f86544de48d650619e74"
+  },
+  "index.php": {
+    "mtime": 1788014014.305151,
+    "seen": 1795230575.5882015,
+    "ast_hash": "90f90615819b83e153e43dd781baff0c",
+    "semantic_hash": "90f90615819b83e153e43dd781baff0c"
+  },
+  "komiku_fetch_test.php": {
+    "mtime": 1786648370.0,
+    "seen": 1795230575.5882022,
+    "ast_hash": "9f255ac25f01041045c4de310ea22d5e",
+    "semantic_hash": "9f255ac25f01041045c4de310ea22d5e"
+  },
+  "login.php": {
+    "mtime": 1788014014.3061962,
+    "seen": 1795230575.588203,
+    "ast_hash": "d98a3aa5dfa78cd8cab032f19a224583",
+    "semantic_hash": "d98a3aa5dfa78cd8cab032f19a224583"
+  },
+  "login_api.php": {
+    "mtime": 1788014014.3071957,
+    "seen": 1795230575.5882041,
+    "ast_hash": "fff178dec2f4d779cf2426a86d7aeac4",
+    "semantic_hash": "fff178dec2f4d779cf2426a86d7aeac4"
+  },
+  "logout.php": {
+    "mtime": 1786175686.4028971,
+    "seen": 1795230575.5882053,
+    "ast_hash": "960f3588e90a1196381d7a8a3a606ff5",
+    "semantic_hash": "960f3588e90a1196381d7a8a3a606ff5"
+  },
+  "logout_api.php": {
+    "mtime": 1788014014.3078823,
+    "seen": 1795230575.588206,
+    "ast_hash": "2b4317548aae3feb41aca6eef201828f",
+    "semantic_hash": "2b4317548aae3feb41aca6eef201828f"
+  },
+  "manage_admin.php": {
+    "mtime": 1788014014.3078823,
+    "seen": 1795230575.588207,
+    "ast_hash": "6d17f50799c031bb1c1c1a56040daf59",
+    "semantic_hash": "6d17f50799c031bb1c1c1a56040daf59"
+  },
+  "manga.php": {
+    "mtime": 1788014014.3089213,
+    "seen": 1795230575.588208,
+    "ast_hash": "28164b1cc37722fd1f3d4a43a778d9c1",
+    "semantic_hash": "28164b1cc37722fd1f3d4a43a778d9c1"
+  },
+  "manifest.json": {
+    "mtime": 1785559608.583747,
+    "seen": 1795230575.5882087,
+    "ast_hash": "005b9806afef9f482c8fd69366f29857",
+    "semantic_hash": "005b9806afef9f482c8fd69366f29857"
+  },
+  "manifest.php": {
+    "mtime": 1785565133.5578866,
+    "seen": 1795230575.5882094,
+    "ast_hash": "45888a39925e6a161eb887aff0d5fd36",
+    "semantic_hash": "45888a39925e6a161eb887aff0d5fd36"
+  },
+  "migration_multisource.sql": {
+    "mtime": 1795229763.7921968,
+    "seen": 1795230575.58821,
+    "ast_hash": "44b8134309bc8f276bba87b40d5cf18f",
+    "semantic_hash": "44b8134309bc8f276bba87b40d5cf18f"
+  },
+  "partials/login_modal.php": {
+    "mtime": 1788014014.309922,
+    "seen": 1795230575.5882113,
+    "ast_hash": "4ff6e63064b902b52d0b2542e978518b",
+    "semantic_hash": "4ff6e63064b902b52d0b2542e978518b"
+  },
+  "profile.php": {
+    "mtime": 1795229763.7931974,
+    "seen": 1795230575.588212,
+    "ast_hash": "156cf8bf10dfbe1bc44da9ee7ec12016",
+    "semantic_hash": "156cf8bf10dfbe1bc44da9ee7ec12016"
+  },
+  "reader.php": {
+    "mtime": 1788014014.3109224,
+    "seen": 1795230575.5882127,
+    "ast_hash": "7c6bcc4788a6e5bc4dea3e7dcf01d5ed",
+    "semantic_hash": "7c6bcc4788a6e5bc4dea3e7dcf01d5ed"
+  },
+  "register.php": {
+    "mtime": 1788014014.3129625,
+    "seen": 1795230575.5882137,
+    "ast_hash": "cbe3ea5e5d9776e401e5098c6fa23dd5",
+    "semantic_hash": "cbe3ea5e5d9776e401e5098c6fa23dd5"
+  },
+  "save_preferred_source.php": {
+    "mtime": 1788014014.3129625,
+    "seen": 1795230575.5882146,
+    "ast_hash": "f0f118f10e65f7e0b038f10296524e12",
+    "semantic_hash": "f0f118f10e65f7e0b038f10296524e12"
+  },
+  "save_progress.php": {
+    "mtime": 1788014014.3129625,
+    "seen": 1795230575.5882154,
+    "ast_hash": "f2299e2a96e398ee549282cc7a44be18",
+    "semantic_hash": "f2299e2a96e398ee549282cc7a44be18"
+  },
+  "schema.sql": {
+    "mtime": 1795229763.7984056,
+    "seen": 1795230575.588216,
+    "ast_hash": "3c9a312ae197aeed370eeb097aabe449",
+    "semantic_hash": "3c9a312ae197aeed370eeb097aabe449"
+  },
+  "search_manga.php": {
+    "mtime": 1788014014.3129625,
+    "seen": 1795230575.588217,
+    "ast_hash": "198633b7af9715c150d47870e9ee2c55",
+    "semantic_hash": "198633b7af9715c150d47870e9ee2c55"
+  },
+  "search_manga_api.php": {
+    "mtime": 1788014014.3129625,
+    "seen": 1795230575.588218,
+    "ast_hash": "8388c418fda932bf94464545e32451db",
+    "semantic_hash": "8388c418fda932bf94464545e32451db"
+  },
+  "sources/AsuraScansSource.php": {
+    "mtime": 1787720295.1223357,
+    "seen": 1795230575.5882187,
+    "ast_hash": "26274828e9e4162bf8fcbe234c5d8c0f",
+    "semantic_hash": "26274828e9e4162bf8fcbe234c5d8c0f"
+  },
+  "sources/CosmicScansSource.php": {
+    "mtime": 1787720295.1233342,
+    "seen": 1795230575.5882196,
+    "ast_hash": "afe837eb0180020005914de22f309fde",
+    "semantic_hash": "afe837eb0180020005914de22f309fde"
+  },
+  "sources/KomikuSource.php": {
+    "mtime": 1787720295.1243324,
+    "seen": 1795230575.5882204,
+    "ast_hash": "499ca15bfef1103cdb9de6ac175f506f",
+    "semantic_hash": "499ca15bfef1103cdb9de6ac175f506f"
+  },
+  "sources/MangaSourceInterface.php": {
+    "mtime": 1787720295.1243324,
+    "seen": 1795230575.588221,
+    "ast_hash": "418fd8aacd407be7267dd707a0890f4a",
+    "semantic_hash": "418fd8aacd407be7267dd707a0890f4a"
+  },
+  "sources/ShinigamiSource.php": {
+    "mtime": 1787720295.1243324,
+    "seen": 1795230575.588222,
+    "ast_hash": "113dc3a5adf739cf2ca9423587473466",
+    "semantic_hash": "113dc3a5adf739cf2ca9423587473466"
+  },
+  "sources/SourceRegistry.php": {
+    "mtime": 1786887118.4315126,
+    "seen": 1795230575.5882237,
+    "ast_hash": "70c85657209d45b75f59ec8e5d8febd8",
+    "semantic_hash": "70c85657209d45b75f59ec8e5d8febd8"
+  },
+  "sw.js": {
+    "mtime": 1785559627.868922,
+    "seen": 1795230575.5882244,
+    "ast_hash": "066a03c063ca110978bfc8db2b3edea1",
+    "semantic_hash": "066a03c063ca110978bfc8db2b3edea1"
+  },
+  "sw.php": {
+    "mtime": 1785565150.90667,
+    "seen": 1795230575.5882254,
+    "ast_hash": "bfff489953de3e6fd9aa7db6ced1d1da",
+    "semantic_hash": "bfff489953de3e6fd9aa7db6ced1d1da"
+  },
+  "sync_functions.php": {
+    "mtime": 1786648370.0,
+    "seen": 1795230575.5882263,
+    "ast_hash": "940962a2995d0f587c60ba39aecfefe3",
+    "semantic_hash": "940962a2995d0f587c60ba39aecfefe3"
+  },
+  "toggle_admin.php": {
+    "mtime": 1788014014.3129625,
+    "seen": 1795230575.588227,
+    "ast_hash": "2d65f9e035f66219bf9af943a3622e18",
+    "semantic_hash": "2d65f9e035f66219bf9af943a3622e18"
+  },
+  "toggle_favorite.php": {
+    "mtime": 1788014014.3129625,
+    "seen": 1795230575.5882277,
+    "ast_hash": "95168f81cd4fd4573780d5487b9e2b82",
+    "semantic_hash": "95168f81cd4fd4573780d5487b9e2b82"
+  },
+  "assets/icons/apple-touch-icon.png": {
+    "mtime": 1785562515.4293091,
+    "seen": 1795230575.5882287,
+    "ast_hash": "730e75de0dab0945858ba0cd1dd5c482",
+    "semantic_hash": "730e75de0dab0945858ba0cd1dd5c482"
+  },
+  "assets/icons/icon-192.png": {
+    "mtime": 1785562515.4937296,
+    "seen": 1795230575.5882297,
+    "ast_hash": "2dc1f787e7a29d8508de4abeef12d7f8",
+    "semantic_hash": "2dc1f787e7a29d8508de4abeef12d7f8"
+  },
+  "assets/icons/icon-512.png": {
+    "mtime": 1785562515.5251708,
+    "seen": 1795230575.5882304,
+    "ast_hash": "026593085c17db7b0718ca343e8a8aa7",
+    "semantic_hash": "026593085c17db7b0718ca343e8a8aa7"
+  },
+  "assets/icons/icon-maskable-192.png": {
+    "mtime": 1785562515.551953,
+    "seen": 1795230575.5882342,
+    "ast_hash": "9c1098ed34244bb9cf299094d030a878",
+    "semantic_hash": "9c1098ed34244bb9cf299094d030a878"
+  },
+  "assets/icons/icon-maskable-512.png": {
+    "mtime": 1785562515.5731518,
+    "seen": 1795230575.5882354,
+    "ast_hash": "3cdce9bb3a5f64be981408a5ca801f9a",
+    "semantic_hash": "3cdce9bb3a5f64be981408a5ca801f9a"
+  },
+  "assets/logo.jpg": {
+    "mtime": 1785484459.8954694,
+    "seen": 1795230575.5882363,
+    "ast_hash": "c5003e44c9159350dc48ff8779a96931",
+    "semantic_hash": "c5003e44c9159350dc48ff8779a96931"
+  },
+  "docs/assets/icons/apple-touch-icon.png": {
+    "mtime": 1785562515.4293091,
+    "seen": 1795230575.588237,
+    "ast_hash": "730e75de0dab0945858ba0cd1dd5c482",
+    "semantic_hash": "730e75de0dab0945858ba0cd1dd5c482"
+  },
+  "docs/assets/icons/icon-192.png": {
+    "mtime": 1785562515.4937296,
+    "seen": 1795230575.588238,
+    "ast_hash": "2dc1f787e7a29d8508de4abeef12d7f8",
+    "semantic_hash": "2dc1f787e7a29d8508de4abeef12d7f8"
+  },
+  "docs/assets/icons/icon-512.png": {
+    "mtime": 1785562515.5251708,
+    "seen": 1795230575.5882392,
+    "ast_hash": "026593085c17db7b0718ca343e8a8aa7",
+    "semantic_hash": "026593085c17db7b0718ca343e8a8aa7"
+  },
+  "docs/assets/icons/icon-maskable-192.png": {
+    "mtime": 1785562515.551953,
+    "seen": 1795230575.58824,
+    "ast_hash": "9c1098ed34244bb9cf299094d030a878",
+    "semantic_hash": "9c1098ed34244bb9cf299094d030a878"
+  },
+  "docs/assets/icons/icon-maskable-512.png": {
+    "mtime": 1785562515.5731518,
+    "seen": 1795230575.5882406,
+    "ast_hash": "3cdce9bb3a5f64be981408a5ca801f9a",
+    "semantic_hash": "3cdce9bb3a5f64be981408a5ca801f9a"
+  }
+}

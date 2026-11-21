@@ -18,6 +18,26 @@ try {
     die("Koneksi database gagal: " . $e->getMessage());
 }
 
+/**
+ * Buat koneksi PDO baru (dipakai utk parallel processing di child process).
+ * Setiap child process HARUS punya koneksi sendiri sendiri.
+ */
+function createPdoConnection(): PDO
+{
+    $DB_HOST = env("DB_HOST", "localhost");
+    $DB_NAME = env("DB_NAME", "manga_reader");
+    $DB_USER = env("DB_USER", "root");
+    $DB_PASS = env("DB_PASS", "");
+
+    $pdo = new PDO(
+        "mysql:host=$DB_HOST;dbname=$DB_NAME;charset=utf8mb4",
+        $DB_USER,
+        $DB_PASS
+    );
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    return $pdo;
+}
+
 define("MAX_LOGIN_ATTEMPTS", (int) env("MAX_LOGIN_ATTEMPTS", 5));
 define("LOGIN_LOCKOUT_MINUTES", (int) env("LOGIN_LOCKOUT_MINUTES", 15));
 define("CRON_SECRET_KEY", env("CRON_SECRET_KEY", ""));
@@ -40,7 +60,9 @@ define("AVATAR_MAX_BYTES", 2 * 1024 * 1024); // 2MB
  * Redirect ke login.php kalau belum login.
  */
 function requireAuth() {
-    session_start();
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
     if (!isset($_SESSION["user_id"])) {
         header("Location: login.php");
         exit;
@@ -52,7 +74,9 @@ function requireAuth() {
  * delete_manga.php, crawl.php, import.php, export.php, dst).
  */
 function requireAdmin() {
-    session_start();
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
     if (!isset($_SESSION["user_id"])) {
         header("Location: login.php");
         exit;
@@ -70,7 +94,9 @@ function requireAdmin() {
  * user kalau ada (dipakai utk personalisasi: bookmark, progress baca, dll).
  */
 function optionalAuth() {
-    session_start();
+    if (session_status() === PHP_SESSION_NONE) {
+        session_start();
+    }
 }
 
 function isLoggedIn(): bool {
