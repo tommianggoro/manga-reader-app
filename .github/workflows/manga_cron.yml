@@ -1,5 +1,6 @@
 name: Manga Reader Auto Sync Cron
 
+# Re-registered schedule: 2026-11-21
 on:
   schedule:
     - cron: '0 5 * * *'
