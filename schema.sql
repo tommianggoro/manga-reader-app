@@ -139,6 +139,7 @@ CREATE TABLE `users` (
   `password_hash` varchar(255) NOT NULL,
   `is_admin` tinyint(1) NOT NULL DEFAULT 0,
   `profile_photo_url` varchar(255) DEFAULT NULL,
+  `telegram_chat_id` varchar(64) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -151,6 +152,7 @@ CREATE TABLE `user_manga_state` (
   `is_favorite` tinyint(1) NOT NULL DEFAULT 0,
   `last_read_chapter_id` varchar(191) DEFAULT NULL,
   `last_read_chapter_number` decimal(8,2) DEFAULT NULL,
+  `last_notified_chapter_number` decimal(8,2) DEFAULT NULL,
   `last_read_at` timestamp NULL DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
@@ -200,7 +202,8 @@ ALTER TABLE `reading_progress`
 
 ALTER TABLE `users`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `username` (`username`);
+  ADD UNIQUE KEY `username` (`username`),
+  ADD KEY `idx_telegram_chat_id` (`telegram_chat_id`);
 
 ALTER TABLE `user_manga_state`
   ADD PRIMARY KEY (`id`),
