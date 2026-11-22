@@ -678,7 +678,11 @@ function formatTanggalIndo($datetime) {
                     ${escapeHtml(tag.name)}
                     ${isAssigned ? '<span class="tag-remove" style="display:flex;" title="Hapus dari manga"><i class="bi bi-check-lg"></i></span>' : ''}
                 `;
-                chip.addEventListener("click", () => toggleTagOnManga(tag.id, tag.name, tag.color, !isAssigned));
+                // Click on chip toggles assignment; click on inner .tag-remove should not bubble
+                chip.addEventListener("click", (e) => {
+                    if (e.target.closest(".tag-remove")) return; // ignore clicks on remove icon
+                    toggleTagOnManga(tag.id, tag.name, tag.color, !isAssigned);
+                });
                 tagPickerList.appendChild(chip);
             });
         }
