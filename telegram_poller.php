@@ -83,6 +83,10 @@ function triggerWorkflowDispatch(string $token, string $repo, string $workflowFi
     return $result !== null;
 }
 
+function triggerTrendingWorkflowDispatch(string $token, string $repo): bool {
+    return triggerWorkflowDispatch($token, $repo, "manga_trending_cron.yml");
+}
+
 function getWorkflowStatus(string $token, string $repo, string $workflowFile = "manga_cron.yml"): ?array {
     return ghRequest("GET", "actions/workflows/{$workflowFile}", [], $token, $repo);
 }
@@ -130,12 +134,40 @@ foreach ($updates["result"] as $update) {
     $response = "";
 
     if ($cmd === "/sync_now" || $cmd === "/sync") {
-        $response = "🔄 Triggering manual sync via workflow_dispatch...";
+        $response = "🔄 Triggering manual sync (manga + trending) via workflow_dispatch...";
         sendMessage($chatId, $response, $botToken);
-        if (triggerWorkflowDispatch($githubToken, $githubRepo)) {
-            sendMessage($chatId, "✅ Sync workflow triggered!", $botToken);
+        $mangaOk = triggerWorkflowDispatch($githubToken, $githubRepo, "manga_cron.yml");
+        $trendingOk = triggerWorkflowDispatch($githubToken, $githubRepo, "manga_trending_cron.yml");
+        if ($mangaOk && $trendingOk) {
+            sendMessage($chatId, "✅ Both sync workflows triggered!", $botToken);
+        } elseif ($mangaOk) {
+            sendMessage($chatId, "⚠️ Manga sync triggered, but trending sync failed.", $botToken);
+        } elseif ($trendingOk) {
+            sendMessage($chatId, "⚠️ Trending sync triggered, but manga sync failed.", $botToken);
         } else {
-            sendMessage($chatId, "❌ Failed to trigger workflow.", $botToken);
+            sendMessage($chatId, "❌ Failed to trigger both workflows.", $botToken);
+        }
+        continue;
+    }
+
+    if ($cmd === "/sync_manga") {
+        $response = "🔄 Triggering manga sync only...";
+        sendMessage($chatId, $response, $botToken);
+        if (triggerWorkflowDispatch($githubToken, $githubRepo, "manga_cron.yml")) {
+            sendMessage($chatId, "✅ Manga sync workflow triggered!", $botToken);
+        } else {
+            sendMessage($chatId, "❌ Failed to trigger manga sync workflow.", $botToken);
+        }
+        continue;
+    }
+
+    if ($cmd === "/sync_trending") {
+        $response = "🔄 Triggering trending sync only...";
+        sendMessage($chatId, $response, $botToken);
+        if (triggerWorkflowDispatch($githubToken, $githubRepo, "manga_trending_cron.yml")) {
+            sendMessage($chatId, "✅ Trending sync workflow triggered!", $botToken);
+        } else {
+            sendMessage($chatId, "❌ Failed to trigger trending sync workflow.", $botToken);
         }
         continue;
     }
@@ -174,9 +206,14 @@ foreach ($updates["result"] as $update) {
 
     if (str_starts_with($cmd, "/help")) {
         $response = "🤖 <b>Manga Reader Bot Commands</b>\n\n";
-        $response .= "/sync_now - Trigger manual sync\n";
+        $response .= "<b>Sync Commands:</b>\n";
+        $response .= "/sync_now /sync - Trigger both manga & trending sync\n";
+        $response .= "/sync_manga - Trigger manga sync only\n";
+        $response .= "/sync_trending - Trigger trending sync only\n\n";
+        $response .= "<b>Cron Control:</b>\n";
         $response .= "/enable_cron - Enable scheduled sync\n";
-        $response .= "/disable_cron - Disable scheduled sync\n";
+        $response .= "/disable_cron - Disable scheduled sync\n\n";
+        $response .= "<b>Info:</b>\n";
         $response .= "/status - Check workflow status\n";
         sendMessage($chatId, $response, $botToken);
         continue;
