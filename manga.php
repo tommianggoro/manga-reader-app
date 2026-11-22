@@ -29,6 +29,25 @@ $stmt = $pdo->prepare("SELECT chapter_id, chapter_number FROM chapters WHERE man
 $stmt->execute([":id" => $mangaId]);
 $firstChapter = $stmt->fetch();
 
+// ==== Reading history untuk manga ini (user login) ====
+$readChapterIds = []; // chapter_id -> updated_at (waktu baca terakhir)
+if ($userId) {
+    $stmt = $pdo->prepare("
+        SELECT rp.chapter_id, rp.updated_at
+        FROM reading_progress rp
+        JOIN chapters c ON c.id = rp.chapter_id
+        WHERE rp.user_id = :uid AND c.manga_id = :mid
+        ORDER BY rp.updated_at DESC
+    ");
+    $stmt->execute([":uid" => $userId, ":mid" => $mangaId]);
+    foreach ($stmt->fetchAll() as $row) {
+        $readChapterIds[$row["chapter_id"]] = $row["updated_at"];
+    }
+}
+$totalChaptersInManga = count($chapters);
+$readChaptersCount = count($readChapterIds);
+$readPercent = $totalChaptersInManga > 0 ? round(($readChaptersCount / $totalChaptersInManga) * 100) : 0;
+
 // Helper format tanggal singkat ala Indonesia, mis. "29 Jul 2026"
 function formatTanggalIndo($datetime) {
     $bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
@@ -135,6 +154,8 @@ function formatTanggalIndo($datetime) {
         .chapter-list-wrap { max-height: 520px; overflow-y: auto; border-radius: 12px; border: 1px solid var(--bs-border-color); overflow-x: hidden; background: var(--bs-secondary-bg); }
         .list-group-item { background: var(--bs-secondary-bg); border-color: var(--bs-border-color); transition: all 0.15s ease; }
         .list-group-item.current-read { border-left: 4px solid var(--bs-primary); background: var(--bs-tertiary-bg); }
+        .list-group-item.chapter-read { background: var(--bs-secondary-bg); }
+        .list-group-item.chapter-read:hover { background: var(--bs-tertiary-bg); }
         .list-group-item-action:hover { background: var(--bs-tertiary-bg); transform: translateX(3px); }
 
         .no-result { color: #7c8194; }
@@ -146,12 +167,19 @@ function formatTanggalIndo($datetime) {
         .list-group-item.just-added {
             animation: newChapterRowFlash 2s ease-out;
         }
+
+        /* Progress Summary */
+        .progress-summary { animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .progress-circle { position: relative; }
+
         @media (max-width: 576px) {
             .theme-toggle-btn { width: 42px; height: 42px; }
             .fav-star-btn { width: 44px; height: 44px; }
 
             .action-buttons-row { flex-direction: column; align-items: stretch !important; }
             .action-buttons-row .btn { width: 100%; margin-left: 0 !important; }
+            .progress-summary .d-flex { flex-direction: column; align-items: flex-start !important; }
         }
     </style>
 </head>
@@ -267,6 +295,34 @@ function formatTanggalIndo($datetime) {
         <?php endif; ?>
     </div>
 
+    <!-- Reading Progress Summary (Logged-in Users) -->
+    <?php if ($userId): ?>
+    <div class="progress-summary mb-3 p-3 rounded-3" style="background: var(--bs-tertiary-bg); border: 1px solid var(--bs-border-color);">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <div class="progress-circle" style="width: 48px; height: 48px; border-radius: 50%; background: conic-gradient(var(--bs-primary) <?= $readPercent * 3.6 ?>deg, var(--bs-border-color) 0deg); display: flex; align-items: center; justify-content: center;">
+                    <div style="width: 38px; height: 38px; border-radius: 50%; background: var(--bs-tertiary-bg); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem;"><?= $readPercent ?>%</div>
+                </div>
+                <div>
+                    <div class="fw-semibold"><?= $readChaptersCount ?> / <?= $totalChaptersInManga ?> chapter dibaca</div>
+                    <div class="small text-secondary">Progres baca manga ini</div>
+                </div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="filterReadBtn" title="Tampilkan hanya chapter sudah dibaca">
+                    <i class="bi bi-check-circle me-1"></i> Sudah Dibaca
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="filterUnreadBtn" title="Tampilkan hanya chapter belum dibaca">
+                    <i class="bi bi-circle me-1"></i> Belum Dibaca
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="filterAllBtn" title="Tampilkan semua chapter">
+                    <i class="bi bi-grid me-1"></i> Semua
+                </button>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <!-- Chapter Search & List Header -->
     <div class="d-flex align-items-center justify-content-between mb-2">
         <h2 class="h5 brand-font mb-0"><i class="bi bi-list-nested me-1"></i> Daftar Chapter</h2>
@@ -280,19 +336,29 @@ function formatTanggalIndo($datetime) {
 
     <div class="chapter-list-wrap">
         <div class="list-group list-group-flush" id="chapterList">
-            <?php foreach ($chapters as $ch): ?>
-                <?php $isCurrent = $userId && !empty($manga['last_read_chapter_id']) && $manga['last_read_chapter_id'] === $ch['chapter_id']; ?>
-                <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2.5 px-3 <?= $isCurrent ? 'current-read' : '' ?>"
+            <?php foreach ($chapters as $ch):
+                $isCurrent = $userId && !empty($manga['last_read_chapter_id']) && $manga['last_read_chapter_id'] === $ch['chapter_id'];
+                $isRead = $userId && isset($readChapterIds[$ch['chapter_id']]);
+                $readAt = $isRead ? $readChapterIds[$ch['chapter_id']] : null;
+            ?>
+                <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2.5 px-3 <?= $isCurrent ? 'current-read' : '' ?> <?= $isRead ? 'chapter-read' : '' ?>"
                    href="reader.php?chapter_id=<?= urlencode($ch['chapter_id']) ?>"
                    data-chapter-id="<?= htmlspecialchars($ch['chapter_id']) ?>"
-                   data-search="<?= htmlspecialchars(mb_strtolower($ch['chapter_number'] . ' ' . ($ch['chapter_title'] ?? ''))) ?>">
-                    <span class="fw-medium">
+                   data-search="<?= htmlspecialchars(mb_strtolower($ch['chapter_number'] . ' ' . ($ch['chapter_title'] ?? ''))) ?>"
+                   data-read="<?= $isRead ? '1' : '0' ?>">
+                    <span class="fw-medium d-flex align-items-center gap-2">
+                        <?php if ($isRead): ?>
+                            <i class="bi bi-check-circle-fill text-success" title="Dibaca pada <?= formatTanggalIndo($readAt) ?>"></i>
+                        <?php else: ?>
+                            <i class="bi bi-circle text-secondary" style="opacity: 0.4;" title="Belum dibaca"></i>
+                        <?php endif; ?>
                         Chapter <?= (float) $ch['chapter_number'] ?>
                         <?= $ch['chapter_title'] ? " — <span class='text-secondary font-normal'>" . htmlspecialchars($ch['chapter_title']) . "</span>" : "" ?>
                     </span>
                     <span class="d-flex align-items-center gap-2 flex-shrink-0">
                         <small class="text-secondary"><?= formatTanggalIndo($ch['updated_at'] ?? $ch['created_at']) ?></small>
                         <?php if ($isCurrent): ?><i class="bi bi-bookmark-fill text-primary current-read-icon" title="Chapter terakhir dibaca"></i><?php endif; ?>
+                        <?php if ($isRead): ?><small class="text-success">✓ Dibaca</small><?php endif; ?>
                     </span>
                 </a>
             <?php endforeach; ?>
@@ -381,6 +447,47 @@ function formatTanggalIndo($datetime) {
             if (match) visibleCount++;
         });
         noResult.style.display = visibleCount === 0 ? "block" : "none";
+    });
+
+    // Chapter read filter (Sudah Dibaca / Belum Dibaca / Semua)
+    const filterReadBtn = document.getElementById("filterReadBtn");
+    const filterUnreadBtn = document.getElementById("filterUnreadBtn");
+    const filterAllBtn = document.getElementById("filterAllBtn");
+
+    function setFilterMode(mode) {
+        // mode: 'read', 'unread', 'all'
+        items.forEach(item => {
+            const isRead = item.dataset.read === '1';
+            const isHiddenBySearch = item.classList.contains('d-none'); // already hidden by search
+
+            let show = false;
+            if (mode === 'read') show = isRead;
+            else if (mode === 'unread') show = !isRead;
+            else show = true; // all
+
+            // Combine with search filter
+            item.classList.toggle("d-none", !show || isHiddenBySearch);
+        });
+
+        // Update button active states
+        [filterReadBtn, filterUnreadBtn, filterAllBtn].forEach(b => b?.classList.remove('active'));
+        if (mode === 'read') filterReadBtn?.classList.add('active');
+        else if (mode === 'unread') filterUnreadBtn?.classList.add('active');
+        else filterAllBtn?.classList.add('active');
+    }
+
+    filterReadBtn?.addEventListener("click", () => setFilterMode('read'));
+    filterUnreadBtn?.addEventListener("click", () => setFilterMode('unread'));
+    filterAllBtn?.addEventListener("click", () => setFilterMode('all'));
+
+    // Also apply filter when search changes
+    const originalSearchHandler = searchInput.oninput;
+    searchInput.addEventListener("input", () => {
+        // Re-apply current filter after search
+        const activeBtn = document.querySelector("#filterReadBtn.active, #filterUnreadBtn.active, #filterAllBtn.active");
+        if (activeBtn === filterReadBtn) setFilterMode('read');
+        else if (activeBtn === filterUnreadBtn) setFilterMode('unread');
+        else setFilterMode('all');
     });
 
     // Toggle favorit -- kalau GUEST, tampilkan modal login dulu (tidak hit API).
