@@ -250,10 +250,30 @@ function formatTanggalIndo($datetime) {
         .empty-state { text-align: center; padding: 3rem; color: var(--bs-secondary-color); }
         .empty-state i { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
 
+        .theme-toggle-btn {
+            width: 38px; height: 38px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid var(--bs-border-color);
+            background: var(--bs-secondary-bg);
+            color: var(--bs-body-color);
+            transition: all 0.2s ease;
+        }
+        .theme-toggle-btn:hover {
+            border-color: var(--bs-primary);
+            color: var(--bs-primary);
+        }
+
+        .user-avatar-btn img {
+            width: 38px; height: 38px; border-radius: 50%; object-fit: cover;
+            border: 1px solid var(--bs-border-color);
+        }
+
         @media (max-width: 576px) {
             .stat-value { font-size: 2rem; }
             .streak-value { font-size: 3rem; }
             .heatmap-day { width: 10px; height: 10px; }
+            .theme-toggle-btn { width: 34px; height: 34px; }
+            .user-avatar-btn img { width: 34px; height: 34px; }
         }
     </style>
 </head>
@@ -268,6 +288,15 @@ function formatTanggalIndo($datetime) {
             <button type="button" class="theme-toggle-btn" id="themeToggle" title="Ganti Mode Gelap/Terang">
                 <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
             </button>
+            <a href="discover.php" class="btn btn-outline-secondary btn-sm" title="Temukan Manga Baru">
+                <i class="bi bi-compass"></i> <span class="d-none d-sm-inline">Temukan</span>
+            </a>
+            <a href="stats.php" class="btn btn-outline-secondary btn-sm" title="Statistik Bacaan">
+                <i class="bi bi-graph-up-arrow"></i> <span class="d-none d-sm-inline">Statistik</span>
+            </a>
+            <a href="profile.php" class="theme-toggle-btn user-avatar-btn p-0 overflow-hidden" title="Profil (<?= htmlspecialchars($username) ?>)">
+                <img src="<?= htmlspecialchars(currentUserAvatarUrl()) ?>" alt="Profil">
+            </a>
             <button type="button" class="theme-toggle-btn" onclick="logoutUser()" title="Keluar (<?= htmlspecialchars($username) ?>)">
                 <i class="bi bi-box-arrow-right"></i>
             </button>

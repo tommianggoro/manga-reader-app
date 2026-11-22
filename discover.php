@@ -55,6 +55,29 @@ $userId = currentUserId(); // null kalau guest
         @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
         .source-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; }
         .source-tag { font-size: 0.62rem; font-weight: 600; background: var(--bs-tertiary-bg); color: var(--bs-primary); border: 1px solid var(--bs-border-color); padding: 0.15rem 0.5rem; border-radius: 50rem; display: inline-flex; align-items: center; white-space: nowrap; }
+
+        .theme-toggle-btn {
+            width: 38px; height: 38px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid var(--bs-border-color);
+            background: var(--bs-secondary-bg);
+            color: var(--bs-body-color);
+            transition: all 0.2s ease;
+        }
+        .theme-toggle-btn:hover {
+            border-color: var(--bs-primary);
+            color: var(--bs-primary);
+        }
+
+        .user-avatar-btn img {
+            width: 38px; height: 38px; border-radius: 50%; object-fit: cover;
+            border: 1px solid var(--bs-border-color);
+        }
+
+        @media (max-width: 576px) {
+            .theme-toggle-btn { width: 34px; height: 34px; }
+            .user-avatar-btn img { width: 34px; height: 34px; }
+        }
     </style>
 </head>
 <body>
@@ -63,6 +86,19 @@ $userId = currentUserId(); // null kalau guest
         <a class="d-inline-flex align-items-center gap-1 text-decoration-none fw-medium" href="index.php">
             <i class="bi bi-arrow-left"></i> Kembali ke koleksi
         </a>
+        <div class="d-flex align-items-center gap-2">
+            <button type="button" class="theme-toggle-btn" id="themeToggle" title="Ganti Mode Gelap/Terang">
+                <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
+            </button>
+            <?php if ($userId): ?>
+                <a href="profile.php" class="theme-toggle-btn user-avatar-btn p-0 overflow-hidden" title="Profil (<?= htmlspecialchars(currentUsername()) ?>">
+                    <img src="<?= htmlspecialchars(currentUserAvatarUrl()) ?>" alt="Profil">
+                </a>
+                <button type="button" class="theme-toggle-btn" onclick="logoutUser()" title="Keluar (<?= htmlspecialchars(currentUsername()) ?>">
+                    <i class="bi bi-box-arrow-right"></i>
+                </button>
+            <?php endif; ?>
+        </div>
     </div>
 
     <h1 class="brand-font h4 mb-1"><i class="bi bi-compass text-primary me-1"></i> Temukan Manga</h1>
