@@ -615,10 +615,10 @@ function formatTanggalIndo($datetime) {
                         <div class="modal-body">
                             <div class="mb-3">
                                 <label class="form-label small fw-semibold">Buat Tag Baru</label>
-                                <div class="input-group input-group-sm">
-                                    <input type="text" id="newTagName" class="form-control" placeholder="Nama tag (mis. Prioritas, Baca Nanti...)" maxlength="64">
-                                    <input type="color" id="newTagColor" class="form-control form-control-color" value="#6c757d" title="Warna tag" style="width: 48px; height: 38px; padding: 0;">
-                                    <button type="button" class="btn btn-primary" id="createTagBtn">Buat</button>
+                                <div class="input-group input-group-sm" style="border-radius: 0.5rem; overflow: hidden;">
+                                    <input type="text" id="newTagName" class="form-control" placeholder="Nama tag (mis. Prioritas, Baca Nanti...)" maxlength="64" style="border-radius: 0;">
+                                    <input type="color" id="newTagColor" class="form-control form-control-color" value="#6c757d" title="Warna tag" style="width: 48px; height: 38px; padding: 0; border-radius: 0; border-left: none; border-right: none;">
+                                    <button type="button" class="btn btn-primary" id="createTagBtn" style="border-radius: 0;">Buat</button>
                                 </div>
                                 <div id="createTagError" class="text-danger small mt-1"></div>
                             </div>
