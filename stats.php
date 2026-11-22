@@ -126,23 +126,25 @@ foreach ($allReadDates as $d) {
     $prevDate = $d;
 }
 
-// Monthly recap (6 bulan terakhir)
+// Monthly recap (6 bulan terakhir) - pakai reading_progress (user_manga_state tidak punya chapter_id)
 $stmt = $pdo->prepare("
-    SELECT DATE_FORMAT(last_read_at, '%Y-%m') as month, COUNT(DISTINCT chapter_id) as chapters, COUNT(DISTINCT manga_id) as manga_count
-    FROM user_manga_state
-    WHERE user_id = :uid AND last_read_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
-    GROUP BY DATE_FORMAT(last_read_at, '%Y-%m')
+    SELECT DATE_FORMAT(rp.updated_at, '%Y-%m') as month, COUNT(DISTINCT rp.chapter_id) as chapters, COUNT(DISTINCT c.manga_id) as manga_count
+    FROM reading_progress rp
+    JOIN chapters c ON c.id = rp.chapter_id
+    WHERE rp.user_id = :uid AND rp.updated_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+    GROUP BY DATE_FORMAT(rp.updated_at, '%Y-%m')
     ORDER BY month ASC
 ");
 $stmt->execute([":uid" => $userId]);
 $monthlyStats = $stmt->fetchAll();
 
-// Yearly total
+// Yearly total - pakai reading_progress
 $stmt = $pdo->prepare("
-    SELECT YEAR(last_read_at) as year, COUNT(DISTINCT chapter_id) as chapters, COUNT(DISTINCT manga_id) as manga_count
-    FROM user_manga_state
-    WHERE user_id = :uid AND last_read_at IS NOT NULL
-    GROUP BY YEAR(last_read_at)
+    SELECT YEAR(rp.updated_at) as year, COUNT(DISTINCT rp.chapter_id) as chapters, COUNT(DISTINCT c.manga_id) as manga_count
+    FROM reading_progress rp
+    JOIN chapters c ON c.id = rp.chapter_id
+    WHERE rp.user_id = :uid AND rp.updated_at IS NOT NULL
+    GROUP BY YEAR(rp.updated_at)
     ORDER BY year DESC
 ");
 $stmt->execute([":uid" => $userId]);
