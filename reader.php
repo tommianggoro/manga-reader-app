@@ -446,31 +446,21 @@ $allChapters = $stmt->fetchAll();
         function goPrev() {
             if (prevChapterId) {
                 // Save progress before navigating away
-                const layout = localStorage.getItem("manga_reader_layout") || "webtoon";
-                if (layout === "webtoon") {
-                    saveReadProgress(window.scrollY > 100 ? Math.round(window.scrollY) : 0, null);
-                } else {
-                    saveReadProgress(null, currentPageIndex);
-                }
-                // Small delay to allow fetch to start
+                saveProgressBeforeNavigate();
+                // Small delay to allow fetch/beacon to start
                 setTimeout(() => {
                     window.location.href = "reader.php?chapter_id=" + encodeURIComponent(prevChapterId);
-                }, 50);
+                }, 100);
             }
         }
         function goNext() {
             if (nextChapterId) {
                 // Save progress before navigating away
-                const layout = localStorage.getItem("manga_reader_layout") || "webtoon";
-                if (layout === "webtoon") {
-                    saveReadProgress(window.scrollY > 100 ? Math.round(window.scrollY) : 0, null);
-                } else {
-                    saveReadProgress(null, currentPageIndex);
-                }
-                // Small delay to allow fetch to start
+                saveProgressBeforeNavigate();
+                // Small delay to allow fetch/beacon to start
                 setTimeout(() => {
                     window.location.href = "reader.php?chapter_id=" + encodeURIComponent(nextChapterId);
-                }, 50);
+                }, 100);
             }
         }
 
@@ -650,6 +640,26 @@ $allChapters = $stmt->fetchAll();
                         `&single_page_index=${singlePageIndex === null ? "" : singlePageIndex}`,
                 });
             } catch (err) { /* tidak kritikal, diamkan */ }
+        }
+
+        // Save progress before navigation (uses sendBeacon for reliability on page unload)
+        function saveProgressBeforeNavigate() {
+            const layout = localStorage.getItem("manga_reader_layout") || "webtoon";
+            let scrollPos = null, pageIdx = null;
+            if (layout === "webtoon") {
+                scrollPos = window.scrollY > 100 ? Math.round(window.scrollY) : 0;
+            } else {
+                pageIdx = currentPageIndex;
+            }
+            // Write to localStorage first (instant)
+            writeLocalProgress(currentChapterId, scrollPos, pageIdx);
+            if (!isLoggedIn) return;
+            // Use sendBeacon for reliable delivery during navigation
+            const body = new URLSearchParams();
+            body.append("chapter_id", currentChapterId);
+            if (scrollPos !== null) body.append("scroll_position", scrollPos);
+            if (pageIdx !== null) body.append("single_page_index", pageIdx);
+            navigator.sendBeacon("save_progress.php", body);
         }
 
         // Posisi tersimpan: kalau login pakai dari DB (server-render PHP), kalau guest
@@ -841,12 +851,7 @@ $allChapters = $stmt->fetchAll();
 
         // 3. Save progress on page unload/navigation (catches quick navigation)
         function saveProgressOnUnload() {
-            const layout = localStorage.getItem("manga_reader_layout") || "webtoon";
-            if (layout === "webtoon") {
-                saveReadProgress(window.scrollY > 100 ? Math.round(window.scrollY) : 0, null);
-            } else {
-                saveReadProgress(null, currentPageIndex);
-            }
+            saveProgressBeforeNavigate();
         }
         window.addEventListener("pagehide", saveProgressOnUnload);
         window.addEventListener("beforeunload", saveProgressOnUnload);
