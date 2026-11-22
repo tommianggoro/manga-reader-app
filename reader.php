@@ -444,10 +444,34 @@ $allChapters = $stmt->fetchAll();
         let currentPageIndex = 0;
 
         function goPrev() {
-            if (prevChapterId) window.location.href = "reader.php?chapter_id=" + encodeURIComponent(prevChapterId);
+            if (prevChapterId) {
+                // Save progress before navigating away
+                const layout = localStorage.getItem("manga_reader_layout") || "webtoon";
+                if (layout === "webtoon") {
+                    saveReadProgress(window.scrollY > 100 ? Math.round(window.scrollY) : 0, null);
+                } else {
+                    saveReadProgress(null, currentPageIndex);
+                }
+                // Small delay to allow fetch to start
+                setTimeout(() => {
+                    window.location.href = "reader.php?chapter_id=" + encodeURIComponent(prevChapterId);
+                }, 50);
+            }
         }
         function goNext() {
-            if (nextChapterId) window.location.href = "reader.php?chapter_id=" + encodeURIComponent(nextChapterId);
+            if (nextChapterId) {
+                // Save progress before navigating away
+                const layout = localStorage.getItem("manga_reader_layout") || "webtoon";
+                if (layout === "webtoon") {
+                    saveReadProgress(window.scrollY > 100 ? Math.round(window.scrollY) : 0, null);
+                } else {
+                    saveReadProgress(null, currentPageIndex);
+                }
+                // Small delay to allow fetch to start
+                setTimeout(() => {
+                    window.location.href = "reader.php?chapter_id=" + encodeURIComponent(nextChapterId);
+                }, 50);
+            }
         }
 
         document.getElementById("jumpSelect").addEventListener("change", (e) => {
@@ -814,6 +838,18 @@ $allChapters = $stmt->fetchAll();
                 saveReadProgress(window.scrollY > 100 ? Math.round(window.scrollY) : 0, null);
             }, 400);
         });
+
+        // 3. Save progress on page unload/navigation (catches quick navigation)
+        function saveProgressOnUnload() {
+            const layout = localStorage.getItem("manga_reader_layout") || "webtoon";
+            if (layout === "webtoon") {
+                saveReadProgress(window.scrollY > 100 ? Math.round(window.scrollY) : 0, null);
+            } else {
+                saveReadProgress(null, currentPageIndex);
+            }
+        }
+        window.addEventListener("pagehide", saveProgressOnUnload);
+        window.addEventListener("beforeunload", saveProgressOnUnload);
     </script>
 </body>
 </html>
