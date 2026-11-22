@@ -495,6 +495,9 @@ function formatTanggalIndo($datetime) {
     const filterUnreadBtn = document.getElementById("filterUnreadBtn");
     const filterAllBtn = document.getElementById("filterAllBtn");
 
+    // Set default active filter (Semua)
+    filterAllBtn?.classList.add('active');
+
     function setFilterMode(mode) {
         // mode: 'read', 'unread', 'all'
         items.forEach(item => {
@@ -522,13 +525,13 @@ function formatTanggalIndo($datetime) {
     filterAllBtn?.addEventListener("click", () => setFilterMode('all'));
 
     // Also apply filter when search changes
-    const originalSearchHandler = searchInput.oninput;
     searchInput.addEventListener("input", () => {
-        // Re-apply current filter after search
+        // Re-apply current filter after search ONLY if a filter is active
         const activeBtn = document.querySelector("#filterReadBtn.active, #filterUnreadBtn.active, #filterAllBtn.active");
         if (activeBtn === filterReadBtn) setFilterMode('read');
         else if (activeBtn === filterUnreadBtn) setFilterMode('unread');
-        else setFilterMode('all');
+        else if (activeBtn === filterAllBtn) setFilterMode('all');
+        // else: no active filter, let search handler handle it
     });
 
     // Toggle favorit -- kalau GUEST, tampilkan modal login dulu (tidak hit API).
