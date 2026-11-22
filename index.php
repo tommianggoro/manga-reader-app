@@ -388,6 +388,12 @@ $redirectAfterLogin = "index.php";
                 <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
             </button>
             <?php if ($userId): ?>
+                <a href="discover.php" class="btn btn-outline-secondary btn-sm" title="Temukan Manga Baru">
+                    <i class="bi bi-compass"></i> <span class="d-none d-sm-inline">Temukan</span>
+                </a>
+                <a href="stats.php" class="btn btn-outline-secondary btn-sm" title="Statistik Bacaan">
+                    <i class="bi bi-graph-up-arrow"></i> <span class="d-none d-sm-inline">Statistik</span>
+                </a>
                 <a href="profile.php" class="theme-toggle-btn user-avatar-btn p-0 overflow-hidden" title="Profil (<?= htmlspecialchars(currentUsername()) ?>)">
                     <img src="<?= htmlspecialchars(currentUserAvatarUrl()) ?>" alt="Profil">
                 </a>
@@ -395,6 +401,9 @@ $redirectAfterLogin = "index.php";
                     <i class="bi bi-box-arrow-right"></i>
                 </button>
             <?php else: ?>
+                <a href="discover.php" class="btn btn-outline-secondary btn-sm" title="Temukan Manga Baru">
+                    <i class="bi bi-compass"></i> <span class="d-none d-sm-inline">Temukan</span>
+                </a>
                 <button type="button" class="btn btn-primary btn-sm fw-semibold" onclick="showLoginRequiredModal('Masuk untuk mengelola bookmark & progres bacamu.')">
                     <i class="bi bi-box-arrow-in-right me-1"></i> Login
                 </button>

@@ -283,10 +283,19 @@ $allChapters = $stmt->fetchAll();
                 <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
             </button>
             <?php if ($userId): ?>
+                <a href="discover.php" class="btn btn-outline-secondary btn-sm" title="Temukan Manga Baru">
+                    <i class="bi bi-compass"></i> <span class="d-none d-sm-inline">Temukan</span>
+                </a>
+                <a href="stats.php" class="btn btn-outline-secondary btn-sm" title="Statistik Bacaan">
+                    <i class="bi bi-graph-up-arrow"></i> <span class="d-none d-sm-inline">Statistik</span>
+                </a>
                 <button type="button" class="theme-toggle-btn" onclick="logoutUser()" title="Keluar (<?= htmlspecialchars(currentUsername()) ?>)">
                     <i class="bi bi-box-arrow-right"></i>
                 </button>
             <?php else: ?>
+                <a href="discover.php" class="btn btn-outline-secondary btn-sm" title="Temukan Manga Baru">
+                    <i class="bi bi-compass"></i> <span class="d-none d-sm-inline">Temukan</span>
+                </a>
                 <button type="button" class="theme-toggle-btn" onclick="showLoginRequiredModal('Login supaya progres bacamu tersimpan ke akun.')" title="Login">
                     <i class="bi bi-box-arrow-in-right"></i>
                 </button>

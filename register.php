@@ -129,7 +129,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             Sudah punya akun? <a href="login.php">Masuk di sini</a>
         </p>
         <p class="text-center small mt-1 mb-0">
-            <a href="index.php" class="text-secondary"><i class="bi bi-arrow-left me-1"></i>Jelajahi dulu sebagai tamu</a>
+            <a href="discover.php" class="text-secondary"><i class="bi bi-compass me-1"></i>Temukan manga sebagai tamu</a>
+        </p>
+        <p class="text-center small mt-1 mb-0">
+            <a href="index.php" class="text-secondary"><i class="bi bi-house me-1"></i>Koleksi sebagai tamu</a>
         </p>
     </div>
 </body>
