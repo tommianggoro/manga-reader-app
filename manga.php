@@ -143,6 +143,23 @@ function formatTanggalIndo($datetime) {
         .fav-star-btn.active { color: var(--bs-primary); border-color: var(--bs-primary); }
         .fav-star-btn:hover { transform: scale(1.05); }
 
+        /* Filter buttons active state */
+        .btn-outline-secondary.active {
+            background-color: var(--bs-secondary-color);
+            border-color: var(--bs-secondary-color);
+            color: var(--bs-body-bg);
+        }
+        [data-bs-theme="dark"] .btn-outline-secondary.active {
+            background-color: var(--bs-primary);
+            border-color: var(--bs-primary);
+            color: #10131a;
+        }
+        [data-bs-theme="light"] .btn-outline-secondary.active {
+            background-color: var(--bs-primary);
+            border-color: var(--bs-primary);
+            color: #fff;
+        }
+
         /* Tag chips */
         .tag-chip {
             display: inline-flex; align-items: center; gap: 0.3rem;
