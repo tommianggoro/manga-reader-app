@@ -76,7 +76,7 @@ $userId = currentUserId(); // null kalau guest
 
     <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 g-3" id="resultsGrid"></div>
     <div class="text-center mt-3" id="loadMoreWrap" style="display:none;">
-        <button type="button class="btn btn-outline-secondary rounded-pill px-4" id="loadMoreBtn">
+        <button type="button" class="btn btn-outline-secondary rounded-pill px-4" id="loadMoreBtn">
             <i class="bi bi-arrow-down-circle me-1"></i> Muat Lebih Banyak
         </button>
     </div>
@@ -116,13 +116,36 @@ $userId = currentUserId(); // null kalau guest
     }
 
     function escapeHtml(s) {
-        return (s ?? "").toString().replace(/[&<>"']/g, c => ({ "&":"&", "<":"<", ">":">", '"':""", "'":"'" }[c]));
+        const div = document.createElement("div");
+        div.textContent = s ?? "";
+        return div.innerHTML;
     }
 
     function appendResultCard(item) {
         const col = document.createElement("div");
         col.className = "col";
         const chapterText = item.latest_chapter_number ? `Ch. ${item.latest_chapter_number}` : "-";
+
+        // Guard: if no sources, show placeholder
+        if (!item.sources || item.sources.length === 0) {
+            col.innerHTML = `
+                <div class="result-card h-100 d-flex flex-column">
+                    <div class="result-cover-wrap">
+                        <img src="${escapeHtml(item.cover_image_url || "")}" alt="${escapeHtml(item.title)}" loading="lazy" onerror="this.style.opacity=0">
+                    </div>
+                    <div class="p-2 d-flex flex-column flex-grow-1">
+                        <div class="fw-semibold small mb-1 text-truncate" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
+                        <div class="small text-secondary mb-2">${chapterText}${item.rating ? ` &middot; <i class="bi bi-star-fill text-warning"></i> ${item.rating}` : ""}</div>
+                        <button class="btn btn-secondary btn-sm mt-auto fw-semibold" disabled>
+                            <i class="bi bi-exclamation-triangle me-1"></i> Tidak ada sumber
+                        </button>
+                    </div>
+                </div>
+            `;
+            resultsGrid.appendChild(col);
+            return;
+        }
+
         const sourceBadges = item.sources.map(s =>
             `<span class="source-tag"><i class="bi bi-hdd-network me-1"></i>${escapeHtml(s.label)}</span>`
         ).join("");

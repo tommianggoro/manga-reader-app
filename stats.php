@@ -63,11 +63,13 @@ arsort($genreCounts);
 $topGenres = array_slice($genreCounts, 0, 8, true);
 
 // Riwayat baca per hari (30 hari terakhir) untuk heatmap/chart
+// Join reading_progress (user_manga_state tidak punya chapter_id)
 $stmt = $pdo->prepare("
-    SELECT DATE(last_read_at) as read_date, COUNT(DISTINCT chapter_id) as chapters
-    FROM user_manga_state
-    WHERE user_id = :uid AND last_read_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-    GROUP BY DATE(last_read_at)
+    SELECT DATE(rp.read_at) as read_date, COUNT(DISTINCT rp.chapter_id) as chapters
+    FROM reading_progress rp
+    JOIN chapters c ON c.id = rp.chapter_id
+    WHERE rp.user_id = :uid AND rp.read_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+    GROUP BY DATE(rp.read_at)
     ORDER BY read_date ASC
 ");
 $stmt->execute([":uid" => $userId]);
