@@ -164,11 +164,12 @@ $stmt = $pdo->prepare("
 $stmt->execute([":uid" => $userId]);
 $topManga = $stmt->fetchAll();
 
-// Reading velocity (chapter per minggu, 8 minggu terakhir)
+// Reading velocity (chapter per minggu, 8 minggu terakhir) - pakai reading_progress
 $stmt = $pdo->prepare("
-    SELECT COUNT(DISTINCT chapter_id) as chapters
-    FROM user_manga_state
-    WHERE user_id = :uid AND last_read_at >= DATE_SUB(NOW(), INTERVAL 8 WEEK)
+    SELECT COUNT(DISTINCT rp.chapter_id) as chapters
+    FROM reading_progress rp
+    JOIN chapters c ON c.id = rp.chapter_id
+    WHERE rp.user_id = :uid AND rp.updated_at >= DATE_SUB(NOW(), INTERVAL 8 WEEK)
 ");
 $stmt->execute([":uid" => $userId]);
 $recentChapters = (int) $stmt->fetchColumn();
