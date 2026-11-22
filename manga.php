@@ -644,6 +644,13 @@ function formatTanggalIndo($datetime) {
         }
 
         // Populate tag picker list
+        populateTagPickerList();
+
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+    }
+
+    function populateTagPickerList() {
         const tagPickerList = document.getElementById("tagPickerList");
         const noTagsHint = document.getElementById("noTagsHint");
 
@@ -675,9 +682,6 @@ function formatTanggalIndo($datetime) {
                 tagPickerList.appendChild(chip);
             });
         }
-
-        const bsModal = new bootstrap.Modal(modal);
-        bsModal.show();
     }
 
     async function createTag() {
@@ -703,8 +707,8 @@ function formatTanggalIndo($datetime) {
             allUserTags.push(data.tag);
             nameInput.value = "";
 
-            // Re-render tag picker
-            showTagPicker(); // close and reopen to refresh
+            // Just refresh the tag picker list, don't recreate modal
+            populateTagPickerList();
         } catch (err) {
             errorEl.textContent = "Gagal: " + err.message;
         }
