@@ -701,10 +701,26 @@ $allChapters = $stmt->fetchAll();
                 if (e.target.closest("button, a, .image-error-card, .single-page-controls")) return;
 
                 const t = e.changedTouches[0];
-                const movedX = Math.abs(t.clientX - touchStartX);
+                const movedX = t.clientX - touchStartX;
                 const movedY = Math.abs(t.clientY - touchStartY);
+                const absMovedX = Math.abs(movedX);
 
-                if (movedX < TAP_MOVE_TOLERANCE && movedY < TAP_MOVE_TOLERANCE) {
+                // Swipe gesture: horizontal swipe > 50px with less vertical movement
+                if (absMovedX > 50 && movedY < absMovedX) {
+                    if (movedX < 0) {
+                        // Swipe left -> Next
+                        const layout = localStorage.getItem("manga_reader_layout") || "webtoon";
+                        if (layout === "single_page") nextSinglePage(); else goNext();
+                    } else {
+                        // Swipe right -> Previous
+                        const layout = localStorage.getItem("manga_reader_layout") || "webtoon";
+                        if (layout === "single_page") prevSinglePage(); else goPrev();
+                    }
+                    return;
+                }
+
+                // Tap -> Toggle UI
+                if (absMovedX < TAP_MOVE_TOLERANCE && movedY < TAP_MOVE_TOLERANCE) {
                     wasTouchInteraction = true;
                     toggleUI();
                     setTimeout(() => { wasTouchInteraction = false; }, 400);

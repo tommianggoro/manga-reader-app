@@ -143,6 +143,21 @@ function formatTanggalIndo($datetime) {
         .fav-star-btn.active { color: var(--bs-primary); border-color: var(--bs-primary); }
         .fav-star-btn:hover { transform: scale(1.05); }
 
+        /* Tag chips */
+        .tag-chip {
+            display: inline-flex; align-items: center; gap: 0.3rem;
+            padding: 0.2rem 0.6rem; border-radius: 50rem;
+            font-size: 0.72rem; font-weight: 600; line-height: 1;
+            border: 1px solid transparent; cursor: default;
+            transition: all 0.15s ease; white-space: nowrap;
+        }
+        .tag-chip .tag-remove { display: none; width: 16px; height: 16px; border-radius: 50%; background: rgba(0,0,0,0.1); flex-shrink: 0; align-items: center; justify-content: center; font-size: 0.65rem; line-height: 1; }
+        .tag-chip:hover .tag-remove { display: flex; }
+        .tag-chip .tag-remove:hover { background: rgba(0,0,0,0.2); }
+        .tag-chips-wrap { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.25rem; }
+        .tag-add-btn { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.6rem; border-radius: 50rem; font-size: 0.72rem; font-weight: 600; border: 1px dashed var(--bs-border-color); background: transparent; color: var(--bs-secondary-color); cursor: pointer; transition: all 0.15s ease; }
+        .tag-add-btn:hover { border-color: var(--bs-primary); color: var(--bs-primary); background: rgba(var(--bs-primary-rgb), 0.08); }
+
         .theme-toggle-btn {
             width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
             border: 1px solid var(--bs-border-color); background: var(--bs-secondary-bg); color: var(--bs-body-color);
@@ -246,6 +261,15 @@ function formatTanggalIndo($datetime) {
             </div>
             <?php if (!empty($manga['genres'])): ?>
                 <div class="small text-secondary"><i class="bi bi-tags me-1"></i><?= htmlspecialchars($manga['genres']) ?></div>
+            <?php endif; ?>
+            <!-- User Custom Tags -->
+            <?php if ($userId): ?>
+            <div class="mt-2">
+                <div id="mangaTagsContainer" class="tag-chips-wrap"></div>
+                <button type="button" class="tag-add-btn" id="tagAddBtn" title="Tambah tag ke manga ini">
+                    <i class="bi bi-plus-lg"></i> Tag
+                </button>
+            </div>
             <?php endif; ?>
         </div>
     </div>
@@ -509,6 +533,256 @@ function formatTanggalIndo($datetime) {
             icon.classList.toggle("bi-star", !data.is_favorite);
         } catch (err) { alert("Gagal update favorit: " + err.message); }
     });
+
+    // ===== CUSTOM TAGS SYSTEM =====
+    // Load and display tags for this manga
+    const mangaTagsContainer = document.getElementById("mangaTagsContainer");
+    const tagAddBtn = document.getElementById("tagAddBtn");
+    let allUserTags = []; // cache all user tags from API
+
+    async function loadUserTags() {
+        if (!isLoggedIn) return;
+        try {
+            const res = await fetch("api_tags.php?action=list");
+            const data = await res.json();
+            if (data.success) {
+                allUserTags = data.tags || [];
+            }
+        } catch (err) {
+            console.warn("Gagal load tags:", err.message);
+        }
+    }
+
+    async function loadMangaTags() {
+        if (!isLoggedIn || !mangaTagsContainer) return;
+        try {
+            const res = await fetch("api_tags.php?action=manga_tags&manga_id=" + encodeURIComponent(currentMangaId));
+            const data = await res.json();
+            if (data.success) {
+                renderMangaTags(data.tags || []);
+            }
+        } catch (err) {
+            console.warn("Gagal load manga tags:", err.message);
+        }
+    }
+
+    function renderMangaTags(tags) {
+        if (!mangaTagsContainer) return;
+        mangaTagsContainer.innerHTML = "";
+        tags.forEach(tag => {
+            const chip = document.createElement("span");
+            chip.className = "tag-chip";
+            chip.style.background = tag.color + "20"; // 12% opacity
+            chip.style.borderColor = tag.color;
+            chip.style.color = tag.color;
+            chip.dataset.tagId = tag.id;
+            chip.innerHTML = `
+                ${escapeHtml(tag.name)}
+                <span class="tag-remove" title="Hapus tag dari manga ini"><i class="bi bi-x"></i></span>
+            `;
+            chip.querySelector(".tag-remove").addEventListener("click", (e) => {
+                e.stopPropagation();
+                removeTagFromManga(tag.id);
+            });
+            mangaTagsContainer.appendChild(chip);
+        });
+    }
+
+    function escapeHtml(s) {
+        const div = document.createElement("div");
+        div.textContent = s ?? "";
+        return div.innerHTML;
+    }
+
+    // Show tag picker modal
+    function showTagPicker() {
+        if (!isLoggedIn) { showLoginRequiredModal(); return; }
+        // Build modal HTML
+        const modalId = "tagPickerModal";
+        let modal = document.getElementById(modalId);
+        if (!modal) {
+            modal = document.createElement("div");
+            modal.id = modalId;
+            modal.className = "modal fade";
+            modal.tabIndex = -1;
+            modal.innerHTML = `
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title brand-font"><i class="bi bi-tag-fill me-2"></i>Kelola Tag</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold">Buat Tag Baru</label>
+                                <div class="input-group input-group-sm">
+                                    <input type="text" id="newTagName" class="form-control" placeholder="Nama tag (mis. Prioritas, Baca Nanti...)" maxlength="64">
+                                    <input type="color" id="newTagColor" class="form-control form-control-color" value="#6c757d" title="Warna tag" style="width: 48px; height: 38px; padding: 0;">
+                                    <button type="button" class="btn btn-primary" id="createTagBtn">Buat</button>
+                                </div>
+                                <div id="createTagError" class="text-danger small mt-1"></div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold">Tag Saya (klik untuk tambah/hapus dari manga ini)</label>
+                                <div id="tagPickerList" class="tag-chips-wrap" style="min-height: 60px;"></div>
+                                <div class="text-secondary small" id="noTagsHint" style="display:none;">Belum ada tag. Buat tag baru di atas.</div>
+                            </div>
+                            <div class="d-flex justify-content-end gap-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Tutup</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            // Create tag handler
+            document.getElementById("createTagBtn").addEventListener("click", createTag);
+            document.getElementById("newTagName").addEventListener("keypress", (e) => {
+                if (e.key === "Enter") createTag();
+            });
+        }
+
+        // Populate tag picker list
+        const tagPickerList = document.getElementById("tagPickerList");
+        const noTagsHint = document.getElementById("noTagsHint");
+
+        if (allUserTags.length === 0) {
+            tagPickerList.innerHTML = "";
+            noTagsHint.style.display = "block";
+        } else {
+            noTagsHint.style.display = "none";
+            tagPickerList.innerHTML = "";
+            // Get currently assigned tag IDs for this manga
+            const assignedTagIds = new Set();
+            mangaTagsContainer.querySelectorAll(".tag-chip").forEach(chip => {
+                assignedTagIds.add(chip.dataset.tagId);
+            });
+
+            allUserTags.forEach(tag => {
+                const isAssigned = assignedTagIds.has(String(tag.id));
+                const chip = document.createElement("span");
+                chip.className = "tag-chip " + (isAssigned ? "active" : "");
+                chip.style.background = tag.color + (isAssigned ? "40" : "20");
+                chip.style.borderColor = tag.color;
+                chip.style.color = tag.color;
+                chip.dataset.tagId = tag.id;
+                chip.innerHTML = `
+                    ${escapeHtml(tag.name)}
+                    ${isAssigned ? '<span class="tag-remove" style="display:flex;" title="Hapus dari manga"><i class="bi bi-check-lg"></i></span>' : ''}
+                `;
+                chip.addEventListener("click", () => toggleTagOnManga(tag.id, tag.name, tag.color, !isAssigned));
+                tagPickerList.appendChild(chip);
+            });
+        }
+
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+    }
+
+    async function createTag() {
+        const nameInput = document.getElementById("newTagName");
+        const colorInput = document.getElementById("newTagColor");
+        const errorEl = document.getElementById("createTagError");
+        const name = nameInput.value.trim();
+        const color = colorInput.value;
+
+        if (!name) { errorEl.textContent = "Nama tag tidak boleh kosong"; return; }
+        errorEl.textContent = "";
+
+        try {
+            const res = await fetch("api_tags.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: "action=create&name=" + encodeURIComponent(name) + "&color=" + encodeURIComponent(color)
+            });
+            const data = await res.json();
+            if (!data.success) { errorEl.textContent = data.error; return; }
+
+            // Add to cache and update UI
+            allUserTags.push(data.tag);
+            nameInput.value = "";
+
+            // Re-render tag picker
+            showTagPicker(); // close and reopen to refresh
+        } catch (err) {
+            errorEl.textContent = "Gagal: " + err.message;
+        }
+    }
+
+    async function toggleTagOnManga(tagId, tagName, tagColor, assign) {
+        try {
+            const action = assign ? "assign" : "remove";
+            const res = await fetch("api_tags.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: "action=" + action + "&manga_id=" + encodeURIComponent(currentMangaId) + "&tag_id=" + encodeURIComponent(tagId)
+            });
+            const data = await res.json();
+            if (!data.success) { alert("Gagal: " + data.error); return; }
+
+            // Reload manga tags display
+            await loadMangaTags();
+            // Update picker UI (toggle active state)
+            const pickerChip = document.querySelector("#tagPickerList .tag-chip[data-tag-id='" + tagId + "']");
+            if (pickerChip) {
+                pickerChip.classList.toggle("active", assign);
+                pickerChip.style.background = tagColor + (assign ? "40" : "20");
+                // Update remove/check icon
+                const removeEl = pickerChip.querySelector(".tag-remove");
+                if (assign) {
+                    if (!removeEl) {
+                        const newRemove = document.createElement("span");
+                        newRemove.className = "tag-remove";
+                        newRemove.style.display = "flex";
+                        newRemove.title = "Hapus dari manga";
+                        newRemove.innerHTML = '<i class="bi bi-check-lg"></i>';
+                        pickerChip.appendChild(newRemove);
+                    } else {
+                        removeEl.style.display = "flex";
+                        removeEl.innerHTML = '<i class="bi bi-check-lg"></i>';
+                    }
+                } else {
+                    if (removeEl) removeEl.remove();
+                }
+            }
+        } catch (err) {
+            alert("Gagal: " + err.message);
+        }
+    }
+
+    async function removeTagFromManga(tagId) {
+        try {
+            const res = await fetch("api_tags.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: "action=remove&manga_id=" + encodeURIComponent(currentMangaId) + "&tag_id=" + encodeURIComponent(tagId)
+            });
+            const data = await res.json();
+            if (!data.success) { alert("Gagal: " + data.error); return; }
+            await loadMangaTags();
+            // Also update picker if open
+            const pickerChip = document.querySelector("#tagPickerList .tag-chip[data-tag-id='" + tagId + "']");
+            if (pickerChip) {
+                pickerChip.classList.remove("active");
+                const tag = allUserTags.find(t => String(t.id) === String(tagId));
+                if (tag) pickerChip.style.background = tag.color + "20";
+                const removeEl = pickerChip.querySelector(".tag-remove");
+                if (removeEl) removeEl.remove();
+            }
+        } catch (err) {
+            alert("Gagal: " + err.message);
+        }
+    }
+
+    // Initialize tags
+    if (isLoggedIn) {
+        (async () => {
+            await loadUserTags();
+            await loadMangaTags();
+        })();
+        tagAddBtn?.addEventListener("click", showTagPicker);
+    }
 
     const preferredSourceSelect = document.getElementById("preferredSourceSelect");
     if (preferredSourceSelect) {
