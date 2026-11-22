@@ -474,44 +474,48 @@ function formatTanggalIndo($datetime) {
         updateThemeUI(newTheme);
     });
 
-    // Chapter search filter
+    // Chapter search + read filter (combined)
     const searchInput = document.getElementById("searchInput");
     const items = Array.from(document.querySelectorAll("#chapterList a"));
     const noResult = document.getElementById("noResult");
 
-    searchInput.addEventListener("input", () => {
-        const q = searchInput.value.trim().toLowerCase();
-        let visibleCount = 0;
-        items.forEach(item => {
-            const match = item.dataset.search.includes(q);
-            item.classList.toggle("d-none", !match);
-            if (match) visibleCount++;
-        });
-        noResult.style.display = visibleCount === 0 ? "block" : "none";
-    });
-
-    // Chapter read filter (Sudah Dibaca / Belum Dibaca / Semua)
     const filterReadBtn = document.getElementById("filterReadBtn");
     const filterUnreadBtn = document.getElementById("filterUnreadBtn");
     const filterAllBtn = document.getElementById("filterAllBtn");
 
-    // Set default active filter (Semua)
+    // State
+    let currentSearchQuery = "";
+    let currentFilterMode = "all"; // 'read', 'unread', 'all'
+
+    // Set default active filter
     filterAllBtn?.classList.add('active');
 
-    function setFilterMode(mode) {
-        // mode: 'read', 'unread', 'all'
+    function applyFilters() {
+        let visibleCount = 0;
         items.forEach(item => {
+            const matchSearch = !currentSearchQuery || item.dataset.search.includes(currentSearchQuery);
             const isRead = item.dataset.read === '1';
-            const isHiddenBySearch = item.classList.contains('d-none'); // already hidden by search
 
-            let show = false;
-            if (mode === 'read') show = isRead;
-            else if (mode === 'unread') show = !isRead;
-            else show = true; // all
+            let matchFilter = true;
+            if (currentFilterMode === 'read') matchFilter = isRead;
+            else if (currentFilterMode === 'unread') matchFilter = !isRead;
+            // 'all' -> matchFilter = true
 
-            // Combine with search filter
-            item.classList.toggle("d-none", !show || isHiddenBySearch);
+            const show = matchSearch && matchFilter;
+            item.classList.toggle("d-none", !show);
+            if (show) visibleCount++;
         });
+        noResult.style.display = visibleCount === 0 ? "block" : "none";
+    }
+
+    searchInput.addEventListener("input", () => {
+        currentSearchQuery = searchInput.value.trim().toLowerCase();
+        applyFilters();
+    });
+
+    function setFilterMode(mode) {
+        currentFilterMode = mode;
+        applyFilters();
 
         // Update button active states
         [filterReadBtn, filterUnreadBtn, filterAllBtn].forEach(b => b?.classList.remove('active'));
@@ -523,16 +527,6 @@ function formatTanggalIndo($datetime) {
     filterReadBtn?.addEventListener("click", () => setFilterMode('read'));
     filterUnreadBtn?.addEventListener("click", () => setFilterMode('unread'));
     filterAllBtn?.addEventListener("click", () => setFilterMode('all'));
-
-    // Also apply filter when search changes
-    searchInput.addEventListener("input", () => {
-        // Re-apply current filter after search ONLY if a filter is active
-        const activeBtn = document.querySelector("#filterReadBtn.active, #filterUnreadBtn.active, #filterAllBtn.active");
-        if (activeBtn === filterReadBtn) setFilterMode('read');
-        else if (activeBtn === filterUnreadBtn) setFilterMode('unread');
-        else if (activeBtn === filterAllBtn) setFilterMode('all');
-        // else: no active filter, let search handler handle it
-    });
 
     // Toggle favorit -- kalau GUEST, tampilkan modal login dulu (tidak hit API).
     const favBtn = document.getElementById("favBtn");
