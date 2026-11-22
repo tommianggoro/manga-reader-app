@@ -729,31 +729,10 @@ function formatTanggalIndo($datetime) {
             const data = await res.json();
             if (!data.success) { alert("Gagal: " + data.error); return; }
 
-            // Reload manga tags display
+            // Reload manga tags display (main header)
             await loadMangaTags();
-            // Update picker UI (toggle active state)
-            const pickerChip = document.querySelector("#tagPickerList .tag-chip[data-tag-id='" + tagId + "']");
-            if (pickerChip) {
-                pickerChip.classList.toggle("active", assign);
-                pickerChip.style.background = tagColor + (assign ? "40" : "20");
-                // Update remove/check icon
-                const removeEl = pickerChip.querySelector(".tag-remove");
-                if (assign) {
-                    if (!removeEl) {
-                        const newRemove = document.createElement("span");
-                        newRemove.className = "tag-remove";
-                        newRemove.style.display = "flex";
-                        newRemove.title = "Hapus dari manga";
-                        newRemove.innerHTML = '<i class="bi bi-check-lg"></i>';
-                        pickerChip.appendChild(newRemove);
-                    } else {
-                        removeEl.style.display = "flex";
-                        removeEl.innerHTML = '<i class="bi bi-check-lg"></i>';
-                    }
-                } else {
-                    if (removeEl) removeEl.remove();
-                }
-            }
+            // Re-render picker list with fresh state from main container
+            populateTagPickerList();
         } catch (err) {
             alert("Gagal: " + err.message);
         }
