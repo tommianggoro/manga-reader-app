@@ -29,6 +29,25 @@ $stmt = $pdo->prepare("SELECT chapter_id, chapter_number FROM chapters WHERE man
 $stmt->execute([":id" => $mangaId]);
 $firstChapter = $stmt->fetch();
 
+// ==== Reading history untuk manga ini (user login) ====
+$readChapterIds = []; // chapter_id -> updated_at (waktu baca terakhir)
+if ($userId) {
+    $stmt = $pdo->prepare("
+        SELECT rp.chapter_id, rp.updated_at
+        FROM reading_progress rp
+        JOIN chapters c ON c.id = rp.chapter_id
+        WHERE rp.user_id = :uid AND c.manga_id = :mid
+        ORDER BY rp.updated_at DESC
+    ");
+    $stmt->execute([":uid" => $userId, ":mid" => $mangaId]);
+    foreach ($stmt->fetchAll() as $row) {
+        $readChapterIds[$row["chapter_id"]] = $row["updated_at"];
+    }
+}
+$totalChaptersInManga = count($chapters);
+$readChaptersCount = count($readChapterIds);
+$readPercent = $totalChaptersInManga > 0 ? round(($readChaptersCount / $totalChaptersInManga) * 100) : 0;
+
 // Helper format tanggal singkat ala Indonesia, mis. "29 Jul 2026"
 function formatTanggalIndo($datetime) {
     $bulan = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agu", "Sep", "Okt", "Nov", "Des"];
@@ -124,6 +143,38 @@ function formatTanggalIndo($datetime) {
         .fav-star-btn.active { color: var(--bs-primary); border-color: var(--bs-primary); }
         .fav-star-btn:hover { transform: scale(1.05); }
 
+        /* Filter buttons active state */
+        .btn-outline-secondary.active {
+            background-color: var(--bs-secondary-color);
+            border-color: var(--bs-secondary-color);
+            color: var(--bs-body-bg);
+        }
+        [data-bs-theme="dark"] .btn-outline-secondary.active {
+            background-color: var(--bs-primary);
+            border-color: var(--bs-primary);
+            color: #10131a;
+        }
+        [data-bs-theme="light"] .btn-outline-secondary.active {
+            background-color: var(--bs-primary);
+            border-color: var(--bs-primary);
+            color: #fff;
+        }
+
+        /* Tag chips */
+        .tag-chip {
+            display: inline-flex; align-items: center; gap: 0.3rem;
+            padding: 0.2rem 0.6rem; border-radius: 0.5rem;
+            font-size: 0.72rem; font-weight: 600; line-height: 1;
+            border: 1px solid transparent; cursor: default;
+            transition: all 0.15s ease; white-space: nowrap;
+        }
+        .tag-chip .tag-remove { display: none; width: 16px; height: 16px; border-radius: 0.3rem; background: rgba(0,0,0,0.1); flex-shrink: 0; align-items: center; justify-content: center; font-size: 0.65rem; line-height: 1; }
+        .tag-chip:hover .tag-remove { display: flex; }
+        .tag-chip .tag-remove:hover { background: rgba(0,0,0,0.2); }
+        .tag-chips-wrap { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.25rem; }
+        .tag-add-btn { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.6rem; border-radius: 0.5rem; font-size: 0.72rem; font-weight: 600; border: 1px dashed var(--bs-border-color); background: transparent; color: var(--bs-secondary-color); cursor: pointer; transition: all 0.15s ease; }
+        .tag-add-btn:hover { border-color: var(--bs-primary); color: var(--bs-primary); background: rgba(var(--bs-primary-rgb), 0.08); }
+
         .theme-toggle-btn {
             width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
             border: 1px solid var(--bs-border-color); background: var(--bs-secondary-bg); color: var(--bs-body-color);
@@ -135,6 +186,8 @@ function formatTanggalIndo($datetime) {
         .chapter-list-wrap { max-height: 520px; overflow-y: auto; border-radius: 12px; border: 1px solid var(--bs-border-color); overflow-x: hidden; background: var(--bs-secondary-bg); }
         .list-group-item { background: var(--bs-secondary-bg); border-color: var(--bs-border-color); transition: all 0.15s ease; }
         .list-group-item.current-read { border-left: 4px solid var(--bs-primary); background: var(--bs-tertiary-bg); }
+        .list-group-item.chapter-read { background: var(--bs-secondary-bg); }
+        .list-group-item.chapter-read:hover { background: var(--bs-tertiary-bg); }
         .list-group-item-action:hover { background: var(--bs-tertiary-bg); transform: translateX(3px); }
 
         .no-result { color: #7c8194; }
@@ -146,12 +199,19 @@ function formatTanggalIndo($datetime) {
         .list-group-item.just-added {
             animation: newChapterRowFlash 2s ease-out;
         }
+
+        /* Progress Summary */
+        .progress-summary { animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .progress-circle { position: relative; }
+
         @media (max-width: 576px) {
             .theme-toggle-btn { width: 42px; height: 42px; }
             .fav-star-btn { width: 44px; height: 44px; }
 
             .action-buttons-row { flex-direction: column; align-items: stretch !important; }
             .action-buttons-row .btn { width: 100%; margin-left: 0 !important; }
+            .progress-summary .d-flex { flex-direction: column; align-items: flex-start !important; }
         }
     </style>
 </head>
@@ -219,6 +279,15 @@ function formatTanggalIndo($datetime) {
             <?php if (!empty($manga['genres'])): ?>
                 <div class="small text-secondary"><i class="bi bi-tags me-1"></i><?= htmlspecialchars($manga['genres']) ?></div>
             <?php endif; ?>
+            <!-- User Custom Tags -->
+            <?php if ($userId): ?>
+            <div class="mt-2">
+                <div id="mangaTagsContainer" class="tag-chips-wrap"></div>
+                <button type="button" class="tag-add-btn" id="tagAddBtn" title="Tambah tag ke manga ini">
+                    <i class="bi bi-plus-lg"></i> Tag
+                </button>
+            </div>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -267,6 +336,34 @@ function formatTanggalIndo($datetime) {
         <?php endif; ?>
     </div>
 
+    <!-- Reading Progress Summary (Logged-in Users) -->
+    <?php if ($userId): ?>
+    <div class="progress-summary mb-3 p-3 rounded-3" style="background: var(--bs-tertiary-bg); border: 1px solid var(--bs-border-color);">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <div class="progress-circle" style="width: 48px; height: 48px; border-radius: 50%; background: conic-gradient(var(--bs-primary) <?= $readPercent * 3.6 ?>deg, var(--bs-border-color) 0deg); display: flex; align-items: center; justify-content: center;">
+                    <div style="width: 38px; height: 38px; border-radius: 50%; background: var(--bs-tertiary-bg); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem;"><?= $readPercent ?>%</div>
+                </div>
+                <div>
+                    <div class="fw-semibold"><?= $readChaptersCount ?> / <?= $totalChaptersInManga ?> chapter dibaca</div>
+                    <div class="small text-secondary">Progres baca manga ini</div>
+                </div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="filterReadBtn" title="Tampilkan hanya chapter sudah dibaca">
+                    <i class="bi bi-check-circle me-1"></i> Sudah Dibaca
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="filterUnreadBtn" title="Tampilkan hanya chapter belum dibaca">
+                    <i class="bi bi-circle me-1"></i> Belum Dibaca
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="filterAllBtn" title="Tampilkan semua chapter">
+                    <i class="bi bi-grid me-1"></i> Semua
+                </button>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <!-- Chapter Search & List Header -->
     <div class="d-flex align-items-center justify-content-between mb-2">
         <h2 class="h5 brand-font mb-0"><i class="bi bi-list-nested me-1"></i> Daftar Chapter</h2>
@@ -280,19 +377,29 @@ function formatTanggalIndo($datetime) {
 
     <div class="chapter-list-wrap">
         <div class="list-group list-group-flush" id="chapterList">
-            <?php foreach ($chapters as $ch): ?>
-                <?php $isCurrent = $userId && !empty($manga['last_read_chapter_id']) && $manga['last_read_chapter_id'] === $ch['chapter_id']; ?>
-                <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2.5 px-3 <?= $isCurrent ? 'current-read' : '' ?>"
+            <?php foreach ($chapters as $ch):
+                $isCurrent = $userId && !empty($manga['last_read_chapter_id']) && $manga['last_read_chapter_id'] === $ch['chapter_id'];
+                $isRead = $userId && isset($readChapterIds[$ch['chapter_id']]);
+                $readAt = $isRead ? $readChapterIds[$ch['chapter_id']] : null;
+            ?>
+                <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center py-2.5 px-3 <?= $isCurrent ? 'current-read' : '' ?> <?= $isRead ? 'chapter-read' : '' ?>"
                    href="reader.php?chapter_id=<?= urlencode($ch['chapter_id']) ?>"
                    data-chapter-id="<?= htmlspecialchars($ch['chapter_id']) ?>"
-                   data-search="<?= htmlspecialchars(mb_strtolower($ch['chapter_number'] . ' ' . ($ch['chapter_title'] ?? ''))) ?>">
-                    <span class="fw-medium">
+                   data-search="<?= htmlspecialchars(mb_strtolower($ch['chapter_number'] . ' ' . ($ch['chapter_title'] ?? ''))) ?>"
+                   data-read="<?= $isRead ? '1' : '0' ?>">
+                    <span class="fw-medium d-flex align-items-center gap-2">
+                        <?php if ($isRead): ?>
+                            <i class="bi bi-check-circle-fill text-success" title="Dibaca pada <?= formatTanggalIndo($readAt) ?>"></i>
+                        <?php else: ?>
+                            <i class="bi bi-circle text-secondary" style="opacity: 0.4;" title="Belum dibaca"></i>
+                        <?php endif; ?>
                         Chapter <?= (float) $ch['chapter_number'] ?>
                         <?= $ch['chapter_title'] ? " — <span class='text-secondary font-normal'>" . htmlspecialchars($ch['chapter_title']) . "</span>" : "" ?>
                     </span>
                     <span class="d-flex align-items-center gap-2 flex-shrink-0">
                         <small class="text-secondary"><?= formatTanggalIndo($ch['updated_at'] ?? $ch['created_at']) ?></small>
                         <?php if ($isCurrent): ?><i class="bi bi-bookmark-fill text-primary current-read-icon" title="Chapter terakhir dibaca"></i><?php endif; ?>
+                        <?php if ($isRead): ?><small class="text-success">✓ Dibaca</small><?php endif; ?>
                     </span>
                 </a>
             <?php endforeach; ?>
@@ -367,21 +474,59 @@ function formatTanggalIndo($datetime) {
         updateThemeUI(newTheme);
     });
 
-    // Chapter search filter
+    // Chapter search + read filter (combined)
     const searchInput = document.getElementById("searchInput");
     const items = Array.from(document.querySelectorAll("#chapterList a"));
     const noResult = document.getElementById("noResult");
 
-    searchInput.addEventListener("input", () => {
-        const q = searchInput.value.trim().toLowerCase();
+    const filterReadBtn = document.getElementById("filterReadBtn");
+    const filterUnreadBtn = document.getElementById("filterUnreadBtn");
+    const filterAllBtn = document.getElementById("filterAllBtn");
+
+    // State
+    let currentSearchQuery = "";
+    let currentFilterMode = "all"; // 'read', 'unread', 'all'
+
+    // Set default active filter
+    filterAllBtn?.classList.add('active');
+
+    function applyFilters() {
         let visibleCount = 0;
         items.forEach(item => {
-            const match = item.dataset.search.includes(q);
-            item.classList.toggle("d-none", !match);
-            if (match) visibleCount++;
+            const matchSearch = !currentSearchQuery || item.dataset.search.includes(currentSearchQuery);
+            const isRead = item.dataset.read === '1';
+
+            let matchFilter = true;
+            if (currentFilterMode === 'read') matchFilter = isRead;
+            else if (currentFilterMode === 'unread') matchFilter = !isRead;
+            // 'all' -> matchFilter = true
+
+            const show = matchSearch && matchFilter;
+            item.classList.toggle("d-none", !show);
+            if (show) visibleCount++;
         });
         noResult.style.display = visibleCount === 0 ? "block" : "none";
+    }
+
+    searchInput.addEventListener("input", () => {
+        currentSearchQuery = searchInput.value.trim().toLowerCase();
+        applyFilters();
     });
+
+    function setFilterMode(mode) {
+        currentFilterMode = mode;
+        applyFilters();
+
+        // Update button active states
+        [filterReadBtn, filterUnreadBtn, filterAllBtn].forEach(b => b?.classList.remove('active'));
+        if (mode === 'read') filterReadBtn?.classList.add('active');
+        else if (mode === 'unread') filterUnreadBtn?.classList.add('active');
+        else filterAllBtn?.classList.add('active');
+    }
+
+    filterReadBtn?.addEventListener("click", () => setFilterMode('read'));
+    filterUnreadBtn?.addEventListener("click", () => setFilterMode('unread'));
+    filterAllBtn?.addEventListener("click", () => setFilterMode('all'));
 
     // Toggle favorit -- kalau GUEST, tampilkan modal login dulu (tidak hit API).
     const favBtn = document.getElementById("favBtn");
@@ -402,6 +547,243 @@ function formatTanggalIndo($datetime) {
             icon.classList.toggle("bi-star", !data.is_favorite);
         } catch (err) { alert("Gagal update favorit: " + err.message); }
     });
+
+    // ===== CUSTOM TAGS SYSTEM =====
+    // Load and display tags for this manga
+    const mangaTagsContainer = document.getElementById("mangaTagsContainer");
+    const tagAddBtn = document.getElementById("tagAddBtn");
+    let allUserTags = []; // cache all user tags from API
+
+    async function loadUserTags() {
+        if (!isLoggedIn) return;
+        try {
+            const res = await fetch("api_tags.php?action=list");
+            const data = await res.json();
+            if (data.success) {
+                allUserTags = data.tags || [];
+            }
+        } catch (err) {
+            console.warn("Gagal load tags:", err.message);
+        }
+    }
+
+    async function loadMangaTags() {
+        if (!isLoggedIn || !mangaTagsContainer) return;
+        try {
+            const res = await fetch("api_tags.php?action=manga_tags&manga_id=" + encodeURIComponent(currentMangaId));
+            const data = await res.json();
+            if (data.success) {
+                renderMangaTags(data.tags || []);
+            }
+        } catch (err) {
+            console.warn("Gagal load manga tags:", err.message);
+        }
+    }
+
+    function renderMangaTags(tags) {
+        if (!mangaTagsContainer) return;
+        mangaTagsContainer.innerHTML = "";
+        tags.forEach(tag => {
+            const chip = document.createElement("span");
+            chip.className = "tag-chip";
+            chip.style.background = tag.color + "20"; // 12% opacity
+            chip.style.borderColor = tag.color;
+            chip.style.color = tag.color;
+            chip.dataset.tagId = tag.id;
+            chip.innerHTML = `
+                ${escapeHtml(tag.name)}
+                <span class="tag-remove" title="Hapus tag dari manga ini"><i class="bi bi-x"></i></span>
+            `;
+            chip.querySelector(".tag-remove").addEventListener("click", (e) => {
+                e.stopPropagation();
+                removeTagFromManga(tag.id);
+            });
+            mangaTagsContainer.appendChild(chip);
+        });
+    }
+
+    function escapeHtml(s) {
+        const div = document.createElement("div");
+        div.textContent = s ?? "";
+        return div.innerHTML;
+    }
+
+    // Show tag picker modal
+    function showTagPicker() {
+        if (!isLoggedIn) { showLoginRequiredModal(); return; }
+        // Build modal HTML
+        const modalId = "tagPickerModal";
+        let modal = document.getElementById(modalId);
+        if (!modal) {
+            modal = document.createElement("div");
+            modal.id = modalId;
+            modal.className = "modal fade";
+            modal.tabIndex = -1;
+            modal.innerHTML = `
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title brand-font"><i class="bi bi-tag-fill me-2"></i>Kelola Tag</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold">Buat Tag Baru</label>
+                                <div class="input-group" style="border-radius: 0.5rem; overflow: hidden;">
+                                    <input type="text" id="newTagName" class="form-control form-control-sm" placeholder="Nama tag (mis. Prioritas, Baca Nanti...)" maxlength="64" style="border-radius: 0; min-width: 0; flex: 1;">
+                                    <input type="color" id="newTagColor" class="form-control form-control-color form-control-sm" value="#6c757d" title="Warna tag" style="width: 48px; height: 38px; padding: 0; border-radius: 0; border-left: none; border-right: none; flex-shrink: 0;">
+                                    <button type="button" class="btn btn-primary btn-sm" id="createTagBtn" style="border-radius: 0;">Buat</button>
+                                </div>
+                                <div id="createTagError" class="text-danger small mt-1"></div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold">Tag Saya (klik untuk tambah/hapus dari manga ini)</label>
+                                <div id="tagPickerList" class="tag-chips-wrap" style="min-height: 60px;"></div>
+                                <div class="text-secondary small" id="noTagsHint" style="display:none;">Belum ada tag. Buat tag baru di atas.</div>
+                            </div>
+                            <div class="d-flex justify-content-end gap-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Tutup</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            // Create tag handler
+            document.getElementById("createTagBtn").addEventListener("click", createTag);
+            document.getElementById("newTagName").addEventListener("keypress", (e) => {
+                if (e.key === "Enter") createTag();
+            });
+        }
+
+        // Populate tag picker list
+        populateTagPickerList();
+
+        const bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+    }
+
+    function populateTagPickerList() {
+        const tagPickerList = document.getElementById("tagPickerList");
+        const noTagsHint = document.getElementById("noTagsHint");
+
+        if (allUserTags.length === 0) {
+            tagPickerList.innerHTML = "";
+            noTagsHint.style.display = "block";
+        } else {
+            noTagsHint.style.display = "none";
+            tagPickerList.innerHTML = "";
+            // Get currently assigned tag IDs for this manga
+            const assignedTagIds = new Set();
+            mangaTagsContainer.querySelectorAll(".tag-chip").forEach(chip => {
+                assignedTagIds.add(chip.dataset.tagId);
+            });
+
+            allUserTags.forEach(tag => {
+                const isAssigned = assignedTagIds.has(String(tag.id));
+                const chip = document.createElement("span");
+                chip.className = "tag-chip " + (isAssigned ? "active" : "");
+                chip.style.background = tag.color + (isAssigned ? "40" : "20");
+                chip.style.borderColor = tag.color;
+                chip.style.color = tag.color;
+                chip.dataset.tagId = tag.id;
+                chip.innerHTML = `
+                    ${escapeHtml(tag.name)}
+                    ${isAssigned ? '<span class="tag-remove" style="display:flex;" title="Hapus dari manga"><i class="bi bi-check-lg"></i></span>' : ''}
+                `;
+                // Click on chip toggles assignment; click on inner .tag-remove should not bubble
+                chip.addEventListener("click", (e) => {
+                    if (e.target.closest(".tag-remove")) return; // ignore clicks on remove icon
+                    toggleTagOnManga(tag.id, tag.name, tag.color, !isAssigned);
+                });
+                tagPickerList.appendChild(chip);
+            });
+        }
+    }
+
+    async function createTag() {
+        const nameInput = document.getElementById("newTagName");
+        const colorInput = document.getElementById("newTagColor");
+        const errorEl = document.getElementById("createTagError");
+        const name = nameInput.value.trim();
+        const color = colorInput.value;
+
+        if (!name) { errorEl.textContent = "Nama tag tidak boleh kosong"; return; }
+        errorEl.textContent = "";
+
+        try {
+            const res = await fetch("api_tags.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: "action=create&name=" + encodeURIComponent(name) + "&color=" + encodeURIComponent(color)
+            });
+            const data = await res.json();
+            if (!data.success) { errorEl.textContent = data.error; return; }
+
+            // Add to cache and update UI
+            allUserTags.push(data.tag);
+            nameInput.value = "";
+
+            // Just refresh the tag picker list, don't recreate modal
+            populateTagPickerList();
+        } catch (err) {
+            errorEl.textContent = "Gagal: " + err.message;
+        }
+    }
+
+    async function toggleTagOnManga(tagId, tagName, tagColor, assign) {
+        try {
+            const action = assign ? "assign" : "remove";
+            const res = await fetch("api_tags.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: "action=" + action + "&manga_id=" + encodeURIComponent(currentMangaId) + "&tag_id=" + encodeURIComponent(tagId)
+            });
+            const data = await res.json();
+            if (!data.success) { alert("Gagal: " + data.error); return; }
+
+            // Reload manga tags display (main header)
+            await loadMangaTags();
+            // Re-render picker list with fresh state from main container
+            populateTagPickerList();
+        } catch (err) {
+            alert("Gagal: " + err.message);
+        }
+    }
+
+    async function removeTagFromManga(tagId) {
+        try {
+            const res = await fetch("api_tags.php", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: "action=remove&manga_id=" + encodeURIComponent(currentMangaId) + "&tag_id=" + encodeURIComponent(tagId)
+            });
+            const data = await res.json();
+            if (!data.success) { alert("Gagal: " + data.error); return; }
+            await loadMangaTags();
+            // Also update picker if open
+            const pickerChip = document.querySelector("#tagPickerList .tag-chip[data-tag-id='" + tagId + "']");
+            if (pickerChip) {
+                pickerChip.classList.remove("active");
+                const tag = allUserTags.find(t => String(t.id) === String(tagId));
+                if (tag) pickerChip.style.background = tag.color + "20";
+                const removeEl = pickerChip.querySelector(".tag-remove");
+                if (removeEl) removeEl.remove();
+            }
+        } catch (err) {
+            alert("Gagal: " + err.message);
+        }
+    }
+
+    // Initialize tags
+    if (isLoggedIn) {
+        (async () => {
+            await loadUserTags();
+            await loadMangaTags();
+        })();
+        tagAddBtn?.addEventListener("click", showTagPicker);
+    }
 
     const preferredSourceSelect = document.getElementById("preferredSourceSelect");
     if (preferredSourceSelect) {

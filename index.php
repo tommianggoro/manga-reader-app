@@ -39,6 +39,34 @@ foreach ($srcRows as $row) {
     $sourcesByManga[$row['manga_id']][] = $row['source'];
 }
 
+// Custom tags: daftar tag milik user + assignment manga -> tag_id (untuk filter di UI).
+// Dibungkus tabel-exists check supaya halaman tetap jalan sebelum migration dijalankan.
+$userTags = [];
+$mangaTagsByManga = [];
+if ($userId) {
+    try {
+        $stmt = $pdo->prepare("SELECT id, name, color FROM user_tags WHERE user_id = :uid ORDER BY name ASC");
+        $stmt->execute([":uid" => $userId]);
+        $userTags = $stmt->fetchAll();
+
+        if (!empty($userTags)) {
+            $stmt = $pdo->prepare("
+                SELECT mut.manga_id, mut.tag_id
+                FROM manga_user_tags mut
+                WHERE mut.user_id = :uid
+            ");
+            $stmt->execute([":uid" => $userId]);
+            foreach ($stmt->fetchAll() as $row) {
+                $mangaTagsByManga[$row['manga_id']][] = (int) $row['tag_id'];
+            }
+        }
+    } catch (PDOException $e) {
+        // Tabel belum ada (migration_tags.sql belum dijalankan) -- abaikan.
+        $userTags = [];
+        $mangaTagsByManga = [];
+    }
+}
+
 // Label tampilan untuk tiap key sumber (mis. "shngm" -> "Shinigami")
 $sourceLabels = [];
 foreach (getAllSources() as $key => $adapter) {
@@ -486,6 +514,20 @@ $redirectAfterLogin = "index.php";
         <?php endforeach; ?>
     </div>
 
+    <?php if (!empty($userTags)): ?>
+    <!-- Filter by custom tag -->
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-4" id="tagFilterChips">
+        <span class="small text-secondary fw-semibold"><i class="bi bi-tags-fill me-1"></i>Tag:</span>
+        <?php foreach ($userTags as $tag): ?>
+            <button type="button" class="btn btn-sm btn-outline-secondary chip tag-filter-chip"
+                    data-tag-id="<?= (int) $tag['id'] ?>"
+                    style="border-color: <?= htmlspecialchars($tag['color']) ?>; color: <?= htmlspecialchars($tag['color']) ?>;">
+                <i class="bi bi-tag-fill me-1"></i><?= htmlspecialchars($tag['name']) ?>
+            </button>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+
     <!-- Grid View Container -->
     <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-5 g-3" id="mangaGrid">
         <?php foreach ($mangas as $m): ?>
@@ -497,6 +539,7 @@ $redirectAfterLogin = "index.php";
                        data-id="<?= htmlspecialchars(mb_strtolower($m['manga_id'])) ?>"
                        data-author="<?= htmlspecialchars(mb_strtolower($m['author'] ?? '')) ?>"
                        data-genres="<?= htmlspecialchars(mb_strtolower($m['genres'] ?? '')) ?>"
+                       data-tags="<?= htmlspecialchars(implode(',', $mangaTagsByManga[$m['manga_id']] ?? [])) ?>"
                        data-favorite="<?= !empty($m['is_favorite']) ? '1' : '0' ?>">
                         <div class="img-wrapper skeleton-shimmer">
                             <img src="<?= htmlspecialchars($m['cover_image_url']) ?>" class="card-img-top" alt="<?= htmlspecialchars($m['title']) ?>" loading="lazy" onload="this.classList.add('loaded'); this.parentElement.classList.remove('skeleton-shimmer');">
@@ -539,6 +582,7 @@ $redirectAfterLogin = "index.php";
                        data-id="<?= htmlspecialchars(mb_strtolower($m['manga_id'])) ?>"
                        data-author="<?= htmlspecialchars(mb_strtolower($m['author'] ?? '')) ?>"
                        data-genres="<?= htmlspecialchars(mb_strtolower($m['genres'] ?? '')) ?>"
+                       data-tags="<?= htmlspecialchars(implode(',', $mangaTagsByManga[$m['manga_id']] ?? [])) ?>"
                        data-favorite="<?= !empty($m['is_favorite']) ? '1' : '0' ?>">
                         <div class="list-img-wrap rounded me-3 skeleton-shimmer">
                             <img src="<?= htmlspecialchars($m['cover_image_url']) ?>" alt="<?= htmlspecialchars($m['title']) ?>" loading="lazy" onload="this.classList.add('loaded'); this.parentElement.classList.remove('skeleton-shimmer');">
@@ -732,10 +776,12 @@ $redirectAfterLogin = "index.php";
     const listRows = Array.from(document.querySelectorAll("#mangaList .manga-item-row"));
     const noResultState = document.getElementById("noResultState");
     const resetFilterBtn = document.getElementById("resetFilterBtn");
-    const chips = Array.from(document.querySelectorAll(".chip"));
+    const chips = Array.from(document.querySelectorAll(".chip:not(.tag-filter-chip)"));
+    const tagFilterChips = Array.from(document.querySelectorAll(".tag-filter-chip"));
 
     let activeGenre = null;
     let favOnly = false;
+    let activeTagId = null;
 
     function setChipActive(chip, active) {
         chip.classList.toggle("btn-primary", active);
@@ -751,7 +797,8 @@ $redirectAfterLogin = "index.php";
             const matchSearch = !q || card.dataset.title.includes(q) || card.dataset.id.includes(q) || (card.dataset.author && card.dataset.author.includes(q)) || (card.dataset.genres && card.dataset.genres.includes(q));
             const matchGenre = !activeGenre || card.dataset.genres.includes(activeGenre);
             const matchFav = !favOnly || card.dataset.favorite === "1";
-            return matchSearch && matchGenre && matchFav;
+            const matchTag = !activeTagId || (card.dataset.tags || "").split(",").includes(String(activeTagId));
+            return matchSearch && matchGenre && matchFav && matchTag;
         };
 
         gridCols.forEach(col => {
@@ -773,8 +820,9 @@ $redirectAfterLogin = "index.php";
     searchInput.addEventListener("input", applyFilters);
     clearSearchBtn.addEventListener("click", () => { searchInput.value = ""; applyFilters(); searchInput.focus(); });
     resetFilterBtn.addEventListener("click", () => {
-        searchInput.value = ""; activeGenre = null; favOnly = false;
+        searchInput.value = ""; activeGenre = null; favOnly = false; activeTagId = null;
         chips.forEach(c => setChipActive(c, false));
+        tagFilterChips.forEach(c => setChipActive(c, false));
         applyFilters();
     });
 
@@ -794,6 +842,23 @@ $redirectAfterLogin = "index.php";
                     activeGenre = genre;
                     setChipActive(chip, true);
                 }
+            }
+            applyFilters();
+        });
+    });
+
+    // Tag filter chips
+    tagFilterChips.forEach(chip => {
+        chip.addEventListener("click", () => {
+            if (!isLoggedIn) { showLoginRequiredModal(); return; }
+            const tagId = chip.dataset.tagId;
+            if (activeTagId === tagId) {
+                activeTagId = null;
+                setChipActive(chip, false);
+            } else {
+                tagFilterChips.forEach(c => setChipActive(c, false));
+                activeTagId = tagId;
+                setChipActive(chip, true);
             }
             applyFilters();
         });

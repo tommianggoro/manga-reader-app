@@ -444,10 +444,24 @@ $allChapters = $stmt->fetchAll();
         let currentPageIndex = 0;
 
         function goPrev() {
-            if (prevChapterId) window.location.href = "reader.php?chapter_id=" + encodeURIComponent(prevChapterId);
+            if (prevChapterId) {
+                // Save progress before navigating away
+                saveProgressBeforeNavigate();
+                // Small delay to allow fetch/beacon to start
+                setTimeout(() => {
+                    window.location.href = "reader.php?chapter_id=" + encodeURIComponent(prevChapterId);
+                }, 100);
+            }
         }
         function goNext() {
-            if (nextChapterId) window.location.href = "reader.php?chapter_id=" + encodeURIComponent(nextChapterId);
+            if (nextChapterId) {
+                // Save progress before navigating away
+                saveProgressBeforeNavigate();
+                // Small delay to allow fetch/beacon to start
+                setTimeout(() => {
+                    window.location.href = "reader.php?chapter_id=" + encodeURIComponent(nextChapterId);
+                }, 100);
+            }
         }
 
         document.getElementById("jumpSelect").addEventListener("change", (e) => {
@@ -628,6 +642,26 @@ $allChapters = $stmt->fetchAll();
             } catch (err) { /* tidak kritikal, diamkan */ }
         }
 
+        // Save progress before navigation (uses sendBeacon for reliability on page unload)
+        function saveProgressBeforeNavigate() {
+            const layout = localStorage.getItem("manga_reader_layout") || "webtoon";
+            let scrollPos = null, pageIdx = null;
+            if (layout === "webtoon") {
+                scrollPos = window.scrollY > 100 ? Math.round(window.scrollY) : 0;
+            } else {
+                pageIdx = currentPageIndex;
+            }
+            // Write to localStorage first (instant)
+            writeLocalProgress(currentChapterId, scrollPos, pageIdx);
+            if (!isLoggedIn) return;
+            // Use sendBeacon for reliable delivery during navigation
+            const body = new URLSearchParams();
+            body.append("chapter_id", currentChapterId);
+            if (scrollPos !== null) body.append("scroll_position", scrollPos);
+            if (pageIdx !== null) body.append("single_page_index", pageIdx);
+            navigator.sendBeacon("save_progress.php", body);
+        }
+
         // Posisi tersimpan: kalau login pakai dari DB (server-render PHP), kalau guest
         // dari localStorage. Kalau login TAPI DB kosong (mis. baru pindah device),
         // fallback ke localStorage juga supaya tidak "lupa" posisi terakhir di device ini.
@@ -701,10 +735,26 @@ $allChapters = $stmt->fetchAll();
                 if (e.target.closest("button, a, .image-error-card, .single-page-controls")) return;
 
                 const t = e.changedTouches[0];
-                const movedX = Math.abs(t.clientX - touchStartX);
+                const movedX = t.clientX - touchStartX;
                 const movedY = Math.abs(t.clientY - touchStartY);
+                const absMovedX = Math.abs(movedX);
 
-                if (movedX < TAP_MOVE_TOLERANCE && movedY < TAP_MOVE_TOLERANCE) {
+                // Swipe gesture: horizontal swipe > 50px with less vertical movement
+                if (absMovedX > 50 && movedY < absMovedX) {
+                    if (movedX < 0) {
+                        // Swipe left -> Next
+                        const layout = localStorage.getItem("manga_reader_layout") || "webtoon";
+                        if (layout === "single_page") nextSinglePage(); else goNext();
+                    } else {
+                        // Swipe right -> Previous
+                        const layout = localStorage.getItem("manga_reader_layout") || "webtoon";
+                        if (layout === "single_page") prevSinglePage(); else goPrev();
+                    }
+                    return;
+                }
+
+                // Tap -> Toggle UI
+                if (absMovedX < TAP_MOVE_TOLERANCE && movedY < TAP_MOVE_TOLERANCE) {
                     wasTouchInteraction = true;
                     toggleUI();
                     setTimeout(() => { wasTouchInteraction = false; }, 400);
@@ -798,6 +848,13 @@ $allChapters = $stmt->fetchAll();
                 saveReadProgress(window.scrollY > 100 ? Math.round(window.scrollY) : 0, null);
             }, 400);
         });
+
+        // 3. Save progress on page unload/navigation (catches quick navigation)
+        function saveProgressOnUnload() {
+            saveProgressBeforeNavigate();
+        }
+        window.addEventListener("pagehide", saveProgressOnUnload);
+        window.addEventListener("beforeunload", saveProgressOnUnload);
     </script>
 </body>
 </html>
