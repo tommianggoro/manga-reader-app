@@ -146,16 +146,16 @@ function formatTanggalIndo($datetime) {
         /* Tag chips */
         .tag-chip {
             display: inline-flex; align-items: center; gap: 0.3rem;
-            padding: 0.2rem 0.6rem; border-radius: 50rem;
+            padding: 0.2rem 0.6rem; border-radius: 0.5rem;
             font-size: 0.72rem; font-weight: 600; line-height: 1;
             border: 1px solid transparent; cursor: default;
             transition: all 0.15s ease; white-space: nowrap;
         }
-        .tag-chip .tag-remove { display: none; width: 16px; height: 16px; border-radius: 50%; background: rgba(0,0,0,0.1); flex-shrink: 0; align-items: center; justify-content: center; font-size: 0.65rem; line-height: 1; }
+        .tag-chip .tag-remove { display: none; width: 16px; height: 16px; border-radius: 0.3rem; background: rgba(0,0,0,0.1); flex-shrink: 0; align-items: center; justify-content: center; font-size: 0.65rem; line-height: 1; }
         .tag-chip:hover .tag-remove { display: flex; }
         .tag-chip .tag-remove:hover { background: rgba(0,0,0,0.2); }
         .tag-chips-wrap { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-top: 0.25rem; }
-        .tag-add-btn { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.6rem; border-radius: 50rem; font-size: 0.72rem; font-weight: 600; border: 1px dashed var(--bs-border-color); background: transparent; color: var(--bs-secondary-color); cursor: pointer; transition: all 0.15s ease; }
+        .tag-add-btn { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.6rem; border-radius: 0.5rem; font-size: 0.72rem; font-weight: 600; border: 1px dashed var(--bs-border-color); background: transparent; color: var(--bs-secondary-color); cursor: pointer; transition: all 0.15s ease; }
         .tag-add-btn:hover { border-color: var(--bs-primary); color: var(--bs-primary); background: rgba(var(--bs-primary-rgb), 0.08); }
 
         .theme-toggle-btn {
