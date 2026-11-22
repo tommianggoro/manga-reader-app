@@ -8,7 +8,7 @@ require_once __DIR__ . "/MangaSourceInterface.php";
  */
 class ShinigamiSource implements MangaSourceInterface
 {
-    private const API_BASE = "https://api.shngm.io/v1";
+    private const API_BASE = "https://api.shinigami.io/v1";
 
     public function getKey(): string { return "shngm"; }
     public function getLabel(): string { return "Shinigami"; }
