@@ -82,16 +82,6 @@ mysql -u root -p < schema.sql
 ```
 > `schema.sql` sudah lengkap dengan semua tabel (termasuk `user_tags`, `manga_user_tags`, `manga_sync_checkpoint`, dll). **Tidak perlu** menjalankan file `migration_*.sql` lagi.
 
-**Existing data (upgrade):**
-```bash
-# Jalankan berurutan (hanya kalau upgrade dari versi lama)
-mysql -u root -p < migration_multisource.sql
-mysql -u root -p < migration_public_access.sql
-mysql -u root -p < migration_tags.sql
-mysql -u root -p < migration_telegram_chat_id.sql
-mysql -u root -p < migration_sync_checkpoint.sql
-```
-
 ### 3. First Admin
 
 ```sql
