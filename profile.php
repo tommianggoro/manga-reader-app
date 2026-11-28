@@ -1,5 +1,12 @@
 <?php
-require_once "config.php";
+/**
+ * Manga Reader - Profile Page (Thin Controller)
+ * User profile management: avatar, telegram, password
+ */
+
+require_once __DIR__ . '/config/config.php';
+require_once __DIR__ . '/config/auth.php';
+
 requireAuth();
 
 $errorPassword = "";
@@ -58,13 +65,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
                     mkdir(AVATAR_UPLOAD_DIR, 0755, true);
                 }
 
-                // Nama file: user_{id}_{waktu}.{ext} -- supaya browser tidak nyangkut
-                // cache foto lama, dan tidak ada bentrok antar-user.
+                // Nama file: user_{id}_{waktu}.{ext}
                 $ext = $allowedTypes[$mimeType];
                 $filename = "user_" . $userId . "_" . time() . "." . $ext;
                 $destination = AVATAR_UPLOAD_DIR . "/" . $filename;
 
-                // Hapus foto lama milik user ini (kalau ada) supaya folder tidak menumpuk.
+                // Hapus foto lama milik user ini
                 $stmt = $pdo->prepare("SELECT profile_photo_url FROM users WHERE id = :id");
                 $stmt->execute([":id" => $userId]);
                 $oldPhoto = $stmt->fetchColumn();
@@ -113,9 +119,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
             $stmt->execute([":chat_id" => $chatId, ":id" => $userId]);
             $_SESSION["telegram_chat_id"] = $chatId;
 
-            // Reset notification baseline for existing favorites so user starts
-            // fresh from now -- avoids a flood of backlog chapters on the next
-            // cron run right after connecting Telegram.
+            // Reset notification baseline for existing favorites
             $stmt = $pdo->prepare("
                 UPDATE user_manga_state ums
                 JOIN (
@@ -145,148 +149,63 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Profil Saya - Manga Reader</title>
+
+    <!-- Pre-paint theme script (no flash) -->
     <script>
-        (function() {
-            const savedTheme = localStorage.getItem('manga_theme') || 'dark';
-            document.documentElement.setAttribute('data-bs-theme', savedTheme);
-        })();
+    (function() {
+        const savedTheme = localStorage.getItem('manga_theme') || 'dark';
+        document.documentElement.setAttribute('data-bs-theme', savedTheme);
+    })();
     </script>
+
     <link rel="icon" href="favicon.ico" sizes="any">
-    <link href="https://fonts.googleapis.com/css2?family=Bitter:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
-    <style>
-        :root, [data-bs-theme="dark"] {
-            --bs-body-bg: #10131a; --bs-body-color: #eae7e0; --bs-primary: #f2a541;
-            --bs-primary-rgb: 242, 165, 65; --bs-border-color: #242938; --bs-secondary-bg: #171b26; --bs-tertiary-bg: #202636;
-        }
-        body { font-family: 'Inter', system-ui, sans-serif; }
-        .brand-font { font-family: 'Bitter', Georgia, serif; }
-        .profile-card { background: var(--bs-secondary-bg); border: 1px solid var(--bs-border-color); border-radius: 16px; padding: 1.5rem; }
-        .avatar-preview {
-            width: 96px; height: 96px; border-radius: 50%; object-fit: cover;
-            border: 2px solid var(--bs-border-color); background: var(--bs-tertiary-bg);
-        }
-        .theme-toggle-btn {
-            width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-            border: 1px solid var(--bs-border-color); background: var(--bs-secondary-bg); color: var(--bs-body-color);
-        }
-    </style>
+    <!-- Google Fonts: Bitter (serif) + Inter (sans) -->
+    <link href="https://fonts.googleapis.com/css2?family=Bitter:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Design Tokens -->
+    <link href="assets/css/variables.css" rel="stylesheet">
 </head>
 <body>
 <div class="container py-4" style="max-width: 520px;">
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <a class="d-inline-flex align-items-center gap-1 text-decoration-none fw-medium" href="index.php">
-            <i class="bi bi-arrow-left"></i> Kembali ke koleksi
-        </a>
-        <div class="d-flex align-items-center gap-2">
-            <a href="discover.php" class="btn btn-outline-secondary btn-sm" title="Temukan Manga Baru">
-    <i class="bi bi-compass"></i> <span class="d-none d-sm-inline">Temukan</span>
-</a>
-<a href="stats.php" class="btn btn-outline-secondary btn-sm" title="Statistik Bacaan">
-    <i class="bi bi-graph-up-arrow"></i> <span class="d-none d-sm-inline">Statistik</span>
-</a>
-<?php if (isAdmin()): ?>
-            <a href="manage_admin.php" class="theme-toggle-btn" title="Kelola Admin"><i class="bi bi-people-fill"></i></a>
-<?php endif; ?>
-<button type="button" class="theme-toggle-btn" onclick="logoutUser('index.php')" title="Keluar"><i class="bi bi-box-arrow-right"></i></button>
-        </div>
-    </div>
 
-    <h1 class="brand-font h4 mb-4"><i class="bi bi-person-circle text-primary me-1"></i> Profil Saya</h1>
+<?php
+// Include composed content view
+$errorPhoto = $errorPhoto;
+$successPhoto = $successPhoto;
+$errorTelegram = $errorTelegram;
+$successTelegram = $successTelegram;
+$errorPassword = $errorPassword;
+$successPassword = $successPassword;
+include __DIR__ . '/views/profile/content.php';
+?>
 
-    <!-- Foto Profil -->
-    <div class="profile-card mb-3">
-        <h2 class="h6 fw-bold mb-3">Foto Profil</h2>
-        <?php if ($errorPhoto): ?><div class="alert alert-danger py-2 small"><?= htmlspecialchars($errorPhoto) ?></div><?php endif; ?>
-        <?php if ($successPhoto): ?><div class="alert alert-success py-2 small"><?= htmlspecialchars($successPhoto) ?></div><?php endif; ?>
-
-        <div class="d-flex align-items-center gap-3 mb-3">
-            <img src="<?= htmlspecialchars(currentUserAvatarUrl()) ?>?t=<?= time() ?>" class="avatar-preview" alt="Foto profil" id="avatarPreview">
-            <div class="flex-grow-1">
-                <div class="fw-semibold"><?= htmlspecialchars(currentUsername()) ?></div>
-                <div class="small text-secondary">JPG/PNG/WEBP, maks 2MB</div>
-            </div>
-        </div>
-
-        <form method="POST" enctype="multipart/form-data" class="d-flex flex-column gap-2">
-            <input type="hidden" name="action" value="upload_photo">
-            <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" class="form-control form-control-sm" required>
-            <button type="submit" class="btn btn-primary btn-sm fw-semibold">
-                <i class="bi bi-upload me-1"></i> Unggah Foto Baru
-            </button>
-        </form>
-        <?php if (currentUserPhoto()): ?>
-        <form method="POST" class="mt-2">
-            <input type="hidden" name="action" value="remove_photo">
-            <button type="submit" class="btn btn-outline-secondary btn-sm">
-                <i class="bi bi-arrow-counterclockwise me-1"></i> Kembalikan ke Foto Default
-            </button>
-        </form>
-        <?php endif; ?>
-    </div>
-
-    <!-- Telegram Chat ID untuk Notifikasi Per-User -->
-    <div class="profile-card mb-3">
-        <h2 class="h6 fw-bold mb-3"><i class="bi bi-telegram text-primary me-1"></i> Notifikasi Telegram Pribadi</h2>
-        <p class="small text-secondary mb-3">
-            Masukkan <b>Chat ID</b> Telegram Anda untuk menerima notifikasi chapter baru
-            hanya untuk manga yang Anda favoritkan (❤️).
-            <br>Dapatkan Chat ID via <a href="https://t.me/userinfobot" target="_blank" rel="noopener">@userinfobot</a>
-            atau <a href="https://t.me/RawDataBot" target="_blank" rel="noopener">@RawDataBot</a>.
-            <br>Format: <code>123456789</code> (personal) atau <code>-1001234567890</code> (grup/channel).
-        </p>
-        <?php if ($errorTelegram): ?><div class="alert alert-danger py-2 small"><?= htmlspecialchars($errorTelegram) ?></div><?php endif; ?>
-        <?php if ($successTelegram): ?><div class="alert alert-success py-2 small"><?= htmlspecialchars($successTelegram) ?></div><?php endif; ?>
-
-        <form method="POST" class="d-flex flex-column gap-2">
-            <input type="hidden" name="action" value="set_telegram">
-            <div class="mb-2">
-                <label class="form-label small fw-semibold">Telegram Chat ID</label>
-                <input type="text" name="telegram_chat_id" class="form-control form-control-sm"
-                    value="<?= htmlspecialchars($_SESSION["telegram_chat_id"] ?? "") ?>"
-                    placeholder="Contoh: 123456789 atau -1001234567890">
-            </div>
-            <div class="d-flex gap-2">
-                <button type="submit" class="btn btn-primary btn-sm fw-semibold flex-grow-1">
-                    <i class="bi bi-save me-1"></i> Simpan
-                </button>
-                <button type="submit" name="telegram_chat_id" value="" class="btn btn-outline-danger btn-sm"
-                    onclick="return confirm('Hapus Chat ID dan nonaktifkan notifikasi?')">
-                    <i class="bi bi-trash me-1"></i> Hapus
-                </button>
-            </div>
-        </form>
-    </div>
-
-    <!-- Ganti Password -->
-    <div class="profile-card">
-        <h2 class="h6 fw-bold mb-3">Ganti Password</h2>
-        <?php if ($errorPassword): ?><div class="alert alert-danger py-2 small"><?= htmlspecialchars($errorPassword) ?></div><?php endif; ?>
-        <?php if ($successPassword): ?><div class="alert alert-success py-2 small"><?= htmlspecialchars($successPassword) ?></div><?php endif; ?>
-
-        <form method="POST">
-            <input type="hidden" name="action" value="change_password">
-            <div class="mb-2">
-                <label class="form-label small fw-semibold">Password Saat Ini</label>
-                <input type="password" name="current_password" class="form-control form-control-sm" required>
-            </div>
-            <div class="mb-2">
-                <label class="form-label small fw-semibold">Password Baru</label>
-                <input type="password" name="new_password" class="form-control form-control-sm" required minlength="6">
-            </div>
-            <div class="mb-3">
-                <label class="form-label small fw-semibold">Konfirmasi Password Baru</label>
-                <input type="password" name="confirm_password" class="form-control form-control-sm" required minlength="6">
-            </div>
-            <button type="submit" class="btn btn-primary btn-sm fw-semibold w-100">
-                <i class="bi bi-key-fill me-1"></i> Ubah Password
-            </button>
-        </form>
-    </div>
 </div>
 
 <script>
+    // Theme Switcher
+    const themeToggleBtn = document.getElementById("themeToggle");
+    const themeIcon = document.getElementById("themeIcon");
+
+    function updateThemeUI(theme) {
+        document.documentElement.setAttribute("data-bs-theme", theme);
+        localStorage.setItem("manga_theme", theme);
+        if (theme === "dark") {
+            themeIcon.className = "bi bi-moon-stars-fill";
+            themeToggleBtn.title = "Ganti ke Mode Terang";
+        } else {
+            themeIcon.className = "bi bi-sun-fill text-warning";
+            themeToggleBtn.title = "Ganti ke Mode Gelap";
+        }
+    }
+    updateThemeUI(localStorage.getItem("manga_theme") || "dark");
+    themeToggleBtn.addEventListener("click", () => {
+        const newTheme = document.documentElement.getAttribute("data-bs-theme") === "dark" ? "light" : "dark";
+        updateThemeUI(newTheme);
+    });
+
     // Logout via AJAX -- profile.php wajib login, jadi setelah logout diarahkan
     // ke index.php (bukan reload di tempat, krn halaman ini akan langsung
     // redirect ke login.php lagi kalau di-reload sbg guest).

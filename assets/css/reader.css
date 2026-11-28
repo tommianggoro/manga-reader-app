@@ -1,0 +1,319 @@
+/**
+ * Reader Page Specific Styles
+ * Extends design tokens from variables.css
+ */
+
+:root,
+[data-bs-theme="dark"] {
+    --topbar-bg: #14171f;
+    --topbar-border: #2a2f3d;
+    --shimmer-bg-1: #191d29;
+    --shimmer-bg-2: #252b3c;
+    --bs-body-bg: #0b0c10;
+    --bs-body-color: #eae7e0;
+}
+
+[data-bs-theme="light"] {
+    --topbar-bg: #ffffff;
+    --topbar-border: #d1d5db;
+    --shimmer-bg-1: #d1d5db;
+    --shimmer-bg-2: #f3f4f6;
+    --bs-body-bg: #e5e7eb;
+    --bs-body-color: #111827;
+}
+
+/* Base reader styles */
+body {
+    padding-bottom: 100px;
+    font-family: 'Inter', system-ui, sans-serif;
+    transition: background-color 0.3s ease;
+}
+
+/* Reading Progress Bar (Fixed Top) */
+.reading-progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 0%;
+    height: 4px;
+    background: linear-gradient(90deg, var(--bs-primary), #f7bc70);
+    z-index: 1060;
+    transition: width 0.1s linear;
+}
+
+.topbar {
+    background: var(--topbar-bg);
+    border-bottom: 1px solid var(--topbar-border);
+    transition: background 0.3s ease, transform 0.25s ease, opacity 0.25s ease;
+}
+.topbar a { color: var(--bs-body-color); }
+
+/* Reader theme toggle button (smaller for topbar) */
+#themeToggle {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--topbar-border);
+    background: transparent;
+    color: var(--bs-body-color);
+    transition: all 0.2s ease;
+}
+
+/* Chapter Images Wrapper & Skeleton */
+.reader {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    transition: max-width 0.2s ease;
+    cursor: pointer;
+}
+
+.page-wrapper {
+    position: relative;
+    width: 100%;
+    min-height: 400px;
+    background: var(--shimmer-bg-1);
+    margin-bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.page-wrapper img {
+    width: 100%;
+    display: block;
+    height: auto;
+    opacity: 0;
+    transition: opacity 0.35s ease;
+}
+
+.page-wrapper img.loaded {
+    opacity: 1;
+}
+
+/* Skeleton Shimmer Loading */
+.skeleton-shimmer {
+    background: linear-gradient(90deg,
+        var(--shimmer-bg-1) 25%,
+        var(--shimmer-bg-2) 50%,
+        var(--shimmer-bg-1) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Mode Single Page Layout */
+.mode-single-page .page-wrapper {
+    display: none !important;
+}
+.mode-single-page .page-wrapper.active-page {
+    display: flex !important;
+}
+.mode-single-page .end-chapter-card {
+    display: none;
+}
+.mode-single-page .end-chapter-card.active-end-card {
+    display: block;
+}
+
+/* Single Page Controls Bar */
+.single-page-controls {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    margin: 1.5rem 0 0.5rem;
+}
+.mode-single-page .single-page-controls {
+    display: flex;
+}
+
+/* Image Error Card */
+.image-error-card {
+    background: var(--topbar-bg);
+    border: 1px solid #dc3545;
+    border-radius: 12px;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    width: 100%;
+    max-width: 500px;
+    margin: 1.5rem auto;
+}
+
+/* Floating Nav Bar */
+.floating-nav {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(20, 23, 31, 0.88);
+    backdrop-filter: blur(10px);
+    border-radius: 50rem;
+    padding: 0.4rem 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    box-shadow: 0 6px 25px rgba(0,0,0,0.5);
+    z-index: 1000;
+    border: 1px solid rgba(255,255,255,0.1);
+    transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+/* Immersive Reading Mode */
+body.reader-hide-ui .topbar {
+    transform: translateY(-100%);
+    opacity: 0;
+    pointer-events: none;
+}
+body.reader-hide-ui .floating-nav {
+    transform: translateX(-50%) translateY(140%);
+    opacity: 0;
+    pointer-events: none;
+}
+[data-bs-theme="light"] .floating-nav {
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: 0 6px 25px rgba(0,0,0,0.15);
+    border: 1px solid rgba(0,0,0,0.1);
+}
+
+.floating-nav .btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    color: var(--bs-body-color);
+    font-size: 1.15rem;
+    transition: all 0.15s ease;
+}
+.floating-nav .btn:hover:not(:disabled) {
+    background: rgba(120, 120, 120, 0.2);
+    transform: scale(1.05);
+}
+.floating-nav .btn:disabled {
+    opacity: 0.25;
+}
+.floating-nav select {
+    background: var(--topbar-bg);
+    color: var(--bs-body-color);
+    border: 1px solid var(--topbar-border);
+    border-radius: 50rem;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+    max-width: 120px;
+}
+
+/* Tap Zones Navigation Overlay */
+.tap-zone {
+    position: fixed;
+    top: 50px;
+    bottom: 80px;
+    width: 15%;
+    z-index: 500;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--bs-primary);
+    font-size: 2rem;
+    pointer-events: auto;
+}
+.tap-zone-left {
+    left: 0;
+    background: linear-gradient(90deg, rgba(0,0,0,0.2), transparent);
+}
+.tap-zone-right {
+    right: 0;
+    background: linear-gradient(-90deg, rgba(0,0,0,0.2), transparent);
+}
+.tap-zone:active {
+    opacity: 0.8;
+}
+
+/* End Chapter Banner */
+.end-chapter-card {
+    max-width: 700px;
+    margin: 2.5rem auto 1rem;
+    background: var(--topbar-bg);
+    border: 1px solid var(--topbar-border);
+    border-radius: 16px;
+    padding: 2rem;
+    text-align: center;
+    width: 100%;
+    cursor: default;
+}
+
+/* Guest Notice Banner */
+.guest-notice {
+    max-width: 700px;
+    margin: 0 auto 1rem;
+    background: var(--topbar-bg);
+    border: 1px solid var(--bs-primary);
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+/* Toast Hint */
+.shortcut-toast {
+    position: fixed;
+    bottom: 80px;
+    right: 20px;
+    z-index: 1050;
+    background: var(--topbar-bg);
+    border: 1px solid var(--topbar-border);
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    font-size: 0.82rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    display: none;
+}
+
+.single-page-controls .btn {
+    min-width: 44px;
+    min-height: 44px;
+}
+
+.floating-nav {
+    padding-bottom: max(0.4rem, env(safe-area-inset-bottom));
+}
+
+@media (max-width: 400px) {
+    .floating-nav {
+        gap: 0.2rem;
+        padding: 0.35rem 0.6rem;
+    }
+    .floating-nav .btn {
+        width: 42px;
+        height: 42px;
+        font-size: 1rem;
+    }
+    .floating-nav select {
+        max-width: 76px;
+        font-size: 0.75rem;
+        padding: 0.35rem 0.5rem;
+    }
+}
+
+@media (max-width: 576px) {
+    #themeToggle {
+        width: 40px;
+        height: 40px;
+    }
+}
