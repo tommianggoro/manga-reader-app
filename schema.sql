@@ -183,6 +183,27 @@ CREATE TABLE `trending_manga` (
   `fetched_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
+-- User Tags System (custom tags per user, many-to-many with mangas)
+CREATE TABLE `user_tags` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `name` varchar(64) NOT NULL,
+  `color` varchar(7) DEFAULT '#6c757d',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+CREATE TABLE `manga_user_tags` (
+  `id` int(11) NOT NULL,
+  `user_id` int(11) NOT NULL,
+  `manga_id` varchar(191) COLLATE utf8mb4_general_ci NOT NULL,
+  `tag_id` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 --
 -- Indexes for dumped tables
 --
@@ -245,6 +266,17 @@ ALTER TABLE `trending_manga`
   ADD UNIQUE KEY `uniq_source_ref_trending` (`source`,`source_ref`),
   ADD KEY `idx_source_rank` (`source`,`rank_position`);
 
+ALTER TABLE `user_tags`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uniq_user_tag_name` (`user_id`,`name`),
+  ADD KEY `idx_user_id` (`user_id`);
+
+ALTER TABLE `manga_user_tags`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uniq_user_manga_tag` (`user_id`,`manga_id`,`tag_id`),
+  ADD KEY `idx_user_manga` (`user_id`,`manga_id`),
+  ADD KEY `idx_tag_id` (`tag_id`);
+
 --
 -- AUTO_INCREMENT for dumped tables
 --
@@ -259,6 +291,8 @@ ALTER TABLE `reading_progress` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `trending_manga` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `users` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 ALTER TABLE `user_manga_state` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `user_tags` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+ALTER TABLE `manga_user_tags` MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- Constraints for dumped tables
@@ -280,6 +314,14 @@ ALTER TABLE `reading_progress`
 ALTER TABLE `user_manga_state`
   ADD CONSTRAINT `ums_manga_fk` FOREIGN KEY (`manga_id`) REFERENCES `mangas` (`manga_id`) ON DELETE CASCADE,
   ADD CONSTRAINT `ums_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+
+ALTER TABLE `user_tags`
+  ADD CONSTRAINT `ut_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE;
+
+ALTER TABLE `manga_user_tags`
+  ADD CONSTRAINT `mut_user_fk` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `mut_manga_fk` FOREIGN KEY (`manga_id`) REFERENCES `mangas` (`manga_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `mut_tag_fk` FOREIGN KEY (`tag_id`) REFERENCES `user_tags` (`id`) ON DELETE CASCADE;
 
 COMMIT;
 
