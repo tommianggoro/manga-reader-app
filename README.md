@@ -80,7 +80,6 @@ cp .env.example .env
 -- Import schema.sql via phpMyAdmin / mysql CLI
 mysql -u root -p < schema.sql
 ```
-> `schema.sql` sudah lengkap dengan semua tabel (termasuk `user_tags`, `manga_user_tags`, `manga_sync_checkpoint`, dll). **Tidak perlu** menjalankan file `migration_*.sql` lagi.
 
 ### 3. First Admin
 
