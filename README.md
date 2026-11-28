@@ -80,10 +80,11 @@ cp .env.example .env
 -- Import schema.sql via phpMyAdmin / mysql CLI
 mysql -u root -p < schema.sql
 ```
+> `schema.sql` sudah lengkap dengan semua tabel (termasuk `user_tags`, `manga_user_tags`, `manga_sync_checkpoint`, dll). **Tidak perlu** menjalankan file `migration_*.sql` lagi.
 
-**Existing data (migrations):**
+**Existing data (upgrade):**
 ```bash
-# Jalankan berurutan
+# Jalankan berurutan (hanya kalau upgrade dari versi lama)
 mysql -u root -p < migration_multisource.sql
 mysql -u root -p < migration_public_access.sql
 mysql -u root -p < migration_tags.sql
