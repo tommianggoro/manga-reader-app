@@ -1,0 +1,25 @@
+{
+    "name": "tommianggoro/manga-reader-app",
+    "description": "Personal manga collection & reader - self-hosted, multi-source, offline-first",
+    "type": "project",
+    "require": {
+        "php": ">=8.1"
+    },
+    "autoload": {
+        "psr-4": {
+            "MangaReader\\": "src/"
+        },
+        "files": [
+            "config/constants.php",
+            "config/database.php",
+            "config/auth.php",
+            "config/rate_limit.php"
+        ]
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
