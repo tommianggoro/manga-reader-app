@@ -1,9 +1,10 @@
 name: Manga Reader Auto Sync Cron
 
-# Re-registered schedule: 2026-11-21
+# Re-registered schedule: 2026-11-28
+# Runs at 23:00 WIB (UTC+7) = 16:00 UTC
 on:
   schedule:
-    - cron: '0 5 * * *'
+    - cron: '0 16 * * *'
   workflow_dispatch:
 
 jobs:
