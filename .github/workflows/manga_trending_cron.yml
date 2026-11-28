@@ -2,7 +2,7 @@ name: Manga Reader Trending Sync Cron
 
 on:
   schedule:
-    - cron: '15 16 * * *'   # 1x/hari, 23:15 WIB (16:15 UTC) - 15 menit sebelum manga_cron supaya tidak tabrakan resource
+    - cron: '15 16 * * *'   # 1x/hari, 23:15 WIB (16:15 UTC) - 15 menit setelah manga_cron supaya tidak tabrakan resource
   workflow_dispatch:
 
 jobs:
